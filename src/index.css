@@ -2,41 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Hash8 Intranet Chat Design System - Modern Telegram-inspired theme
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
+    /* Base colors */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 213 31% 9%;
 
+    /* Card and surfaces */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 213 31% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 213 31% 9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Hash8 brand blue */
+    --primary: 213 94% 68%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 213 94% 60%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Clean gray */
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 213 31% 9%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted elements */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 13% 50%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Success green */
+    --accent: 142 71% 45%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Chat specific colors */
+    --chat-bg: 220 13% 97%;
+    --chat-bubble-sent: 213 94% 68%;
+    --chat-bubble-sent-foreground: 0 0% 100%;
+    --chat-bubble-received: 0 0% 100%;
+    --chat-bubble-received-foreground: 213 31% 9%;
+    --chat-sidebar: 0 0% 100%;
+    --chat-header: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Status colors */
+    --online: 142 71% 45%;
+    --offline: 215 13% 50%;
+    --typing: 213 94% 68%;
 
-    --radius: 0.5rem;
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(213 94% 68%), hsl(213 94% 75%));
+    --gradient-chat: linear-gradient(180deg, hsl(220 13% 97%), hsl(220 13% 95%));
+
+    /* Effects */
+    --shadow-message: 0 2px 8px hsl(213 94% 68% / 0.1);
+    --shadow-sidebar: 2px 0 12px hsl(0 0% 0% / 0.04);
+    --shadow-header: 0 2px 8px hsl(0 0% 0% / 0.04);
+
+    /* Animation */
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* Error states */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and inputs */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 213 94% 68%;
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,33 +92,65 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Base colors - Dark mode */
+    --background: 213 31% 9%;
+    --foreground: 0 0% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    /* Card and surfaces */
+    --card: 213 27% 12%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 213 27% 12%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Primary - Brighter in dark mode */
+    --primary: 213 94% 70%;
+    --primary-foreground: 213 31% 9%;
+    --primary-hover: 213 94% 75%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary - Dark gray */
+    --secondary: 213 27% 15%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Muted elements */
+    --muted: 213 27% 15%;
+    --muted-foreground: 215 13% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Accent - Bright green */
+    --accent: 142 71% 50%;
+    --accent-foreground: 213 31% 9%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* Chat specific colors - Dark */
+    --chat-bg: 213 31% 9%;
+    --chat-bubble-sent: 213 94% 70%;
+    --chat-bubble-sent-foreground: 213 31% 9%;
+    --chat-bubble-received: 213 27% 15%;
+    --chat-bubble-received-foreground: 0 0% 95%;
+    --chat-sidebar: 213 27% 12%;
+    --chat-header: 213 27% 12%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Status colors */
+    --online: 142 71% 50%;
+    --offline: 215 13% 55%;
+    --typing: 213 94% 70%;
+
+    /* Gradients - Dark */
+    --gradient-primary: linear-gradient(135deg, hsl(213 94% 70%), hsl(213 94% 75%));
+    --gradient-chat: linear-gradient(180deg, hsl(213 31% 9%), hsl(213 27% 12%));
+
+    /* Effects - Dark */
+    --shadow-message: 0 2px 8px hsl(0 0% 0% / 0.3);
+    --shadow-sidebar: 2px 0 12px hsl(0 0% 0% / 0.2);
+    --shadow-header: 0 2px 8px hsl(0 0% 0% / 0.2);
+
+    /* Error states */
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 95%;
+
+    /* Borders and inputs */
+    --border: 213 27% 20%;
+    --input: 213 27% 20%;
+    --ring: 213 94% 70%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
