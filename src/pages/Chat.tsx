@@ -373,9 +373,11 @@ const Chat = () => {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <Users className="w-4 h-4" />
-              </Button>
+              {selectedGroup && (
+                <Button variant="ghost" size="icon">
+                  <Users className="w-4 h-4" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon">
                 <MoreVertical className="w-4 h-4" />
               </Button>
