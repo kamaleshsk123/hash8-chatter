@@ -23,8 +23,8 @@ A modern, organization-oriented intranet platform for real-time group chat, dire
 
 1. **Clone the repository:**
    ```sh
-   git clone <YOUR_GIT_URL>
-   cd <YOUR_PROJECT_NAME>
+   git clone https://github.com/kamaleshsk123/hash8-chatter.git
+   cd hash8-chatter
    ```
 2. **Install dependencies:**
    ```sh
