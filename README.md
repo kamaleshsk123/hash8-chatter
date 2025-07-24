@@ -1,73 +1,115 @@
-# Welcome to your Lovable project
+# Hash8 Intranet
 
-## Project info
+A modern, organization-oriented intranet platform for real-time group chat, direct messaging, and a social feed—built with React, TypeScript, Vite, shadcn-ui, and Tailwind CSS.
 
-**URL**: https://lovable.dev/projects/11ffd450-0e55-4243-a201-f83cae31e14d
+---
 
-## How can I edit this code?
+## ✨ Features
 
-There are several ways of editing your application.
+- **Authentication**: Google login and email/password registration (with Firebase Auth)
+- **Responsive UI**: Mobile-first, beautiful on all devices
+- **Sidebar Navigation**: Switch between groups, direct chats, and a company-wide feed
+- **Group Chat**: Real-time group messaging with typing indicators, avatars, and unread badges
+- **Direct Chat**: One-on-one messaging with instant feedback
+- **Organization Feed**: Instagram-style post feed with images, reactions, comments, and save/bookmark
+- **Add Post**: Share updates, images, and more (demo posts included)
+- **Dark Mode**: Toggle between light and dark themes
+- **Customizable**: Built with shadcn-ui and Tailwind for easy theming
+- **404 Page**: Friendly not-found page for invalid routes
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/11ffd450-0e55-4243-a201-f83cae31e14d) and start prompting.
+## 🚀 Quick Start
 
-Changes made via Lovable will be committed automatically to this repo.
+1. **Clone the repository:**
+   ```sh
+   git clone <YOUR_GIT_URL>
+   cd <YOUR_PROJECT_NAME>
+   ```
+2. **Install dependencies:**
+   ```sh
+   npm install
+   ```
+3. **Set up Firebase:**
+   - Create a Firebase project and enable Google and Email/Password authentication.
+   - Add your Firebase config to a `.env` file (see `.env.example`).
+4. **Start the development server:**
+   ```sh
+   npm run dev
+   ```
+5. **Open in your browser:**
+   - Visit [http://localhost:5173](http://localhost:5173) (or the port shown in your terminal)
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🛠️ Tech Stack
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- **Frontend:** React, TypeScript, Vite
+- **UI:** shadcn-ui, Tailwind CSS, Framer Motion, Lucide Icons
+- **State:** React Context, React Query
+- **Backend:** Firebase Auth, Firestore (for real data, currently demo data)
+- **Other:** date-fns, Radix UI, class-variance-authority
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🗂️ Project Structure
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- `src/pages/Chat.tsx` — Main chat and feed logic
+- `src/pages/FeedDemo.tsx` — Organization feed (posts, reactions, comments)
+- `src/pages/Login.tsx` — Login and registration (Google & email)
+- `src/pages/ChatSidebar.tsx` — Sidebar navigation (groups, chats, feed)
+- `src/context/AuthContext.tsx` — Authentication context
+- `src/services/firebase.ts` — Firebase setup and auth helpers
+- `src/components/ChatBubble.tsx` — Chat message UI
+- `src/pages/AddPostInput.tsx` — Add post input for the feed
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 💬 Chat & Messaging
 
-**Edit a file directly in GitHub**
+- **Group chat:**
+  - Real-time messages, avatars, typing indicators, unread badges
+  - Responsive chat bubbles (sent/right, received/left)
+- **Direct chat:**
+  - One-on-one messaging, mock replies for demo
+- **Sidebar:**
+  - Switch between groups, chats, and feed
+  - Selected item is highlighted
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📰 Organization Feed
 
-**Use GitHub Codespaces**
+- **Feed:**
+  - Instagram-style posts with images, text, reactions (emoji), comments, and save/bookmark
+  - Add new posts (with image upload)
+  - On mobile: floating + button opens overlay input
+  - On web: input always at top, + button scrolls to top when input is out of view
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🔐 Authentication
 
-## What technologies are used for this project?
+- **Google login** (OAuth)
+- **Email/password registration and login**
+- **Firebase Auth** for secure user management
 
-This project is built with:
+## 🌈 Theming & UI
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Dark mode** toggle
+- **shadcn-ui** and **Tailwind CSS** for modern, customizable design
+- **Radix UI** for accessible components
 
-## How can I deploy this project?
+## 🏗️ Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/11ffd450-0e55-4243-a201-f83cae31e14d) and click on Share -> Publish.
+- Deploy to Vercel, Netlify, or GitHub Pages
+- Add your Firebase config in production
+- Connect a custom domain via your hosting provider
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## 🤝 Contributing
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Pull requests and issues are welcome! Please open an issue to discuss your idea or bug before submitting a PR.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+---
+
+## 📄 License
+
+MIT
