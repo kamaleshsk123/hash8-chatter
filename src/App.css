@@ -40,3 +40,11 @@
 .read-the-docs {
   color: #888;
 }
+.feed-scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
+.feed-scroll-area {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
