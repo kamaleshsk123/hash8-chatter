@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const fetchAndSetUser = async () => {
-      if (firebaseUser) {
+    if (firebaseUser) {
         // Upsert user profile in Firestore
         await upsertUserProfile({
           uid: firebaseUser.uid,
@@ -62,18 +62,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!avatar && name) {
           avatar = undefined; // Let UI fallback to first letter
         }
-        const userData: User = {
-          uid: firebaseUser.uid,
+      const userData: User = {
+        uid: firebaseUser.uid,
           name,
           email: firebaseUser.email || "",
           avatar,
-          isOnline: true,
+        isOnline: true,
           lastSeen: new Date(),
-        };
-        setUser(userData);
-      } else {
-        setUser(null);
-      }
+      };
+      setUser(userData);
+    } else {
+      setUser(null);
+    }
     };
     fetchAndSetUser();
   }, [firebaseUser]);
