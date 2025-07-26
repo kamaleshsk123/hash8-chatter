@@ -6,6 +6,7 @@ import {
   signOut,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  updateProfile, // Import updateProfile
 } from "firebase/auth";
 import {
   getFirestore,
@@ -18,6 +19,7 @@ import {
   where,
   getDocs,
   count,
+  deleteDoc,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -67,9 +69,23 @@ export const signInWithEmail = async (email: string, password: string) => {
   }
 };
 
-export const registerWithEmail = async (email: string, password: string) => {
+export const registerWithEmail = async (
+  email: string,
+  password: string,
+  name?: string
+) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+    // Update profile with name
+    if (name) {
+      await updateProfile(result.user, { displayName: name });
+    }
+    // Store user profile with name
+    await upsertUserProfile({
+      uid: result.user.uid,
+      displayName: name || "",
+      photoURL: "",
+    });
     return result.user;
   } catch (error) {
     console.error("Error registering with email:", error);
@@ -84,6 +100,23 @@ export const signOutUser = async () => {
     console.error("Error signing out:", error);
     throw error;
   }
+};
+
+// Upsert user profile in /users/{userId}
+export const upsertUserProfile = async (user: {
+  uid: string;
+  displayName?: string;
+  photoURL?: string;
+}) => {
+  if (!user.uid) return;
+  await setDoc(
+    doc(db, "users", user.uid),
+    {
+      displayName: user.displayName || "",
+      avatar: user.photoURL || "",
+    },
+    { merge: true }
+  );
 };
 
 // Organization and Membership Firestore functions
@@ -189,6 +222,63 @@ export const getUserRoleInOrganization = async (
   const membershipSnap = await getDoc(membershipRef);
   if (!membershipSnap.exists()) return null;
   return membershipSnap.data().role;
+};
+
+// Get all groups for an organization
+export const getOrganizationGroups = async (orgUID: string) => {
+  const q = query(collection(db, `organizations/${orgUID}/groups`));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+
+// Get all members for an organization
+export const getOrganizationMembers = async (orgUID: string) => {
+  const q = query(
+    collection(db, "organization_memberships"),
+    where("organizationId", "==", orgUID)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => doc.data());
+};
+
+// Update organization details
+export const updateOrganization = async (
+  orgUID: string,
+  updates: {
+    name?: string;
+    description?: string;
+  }
+) => {
+  const orgRef = doc(db, "organizations", orgUID);
+  await setDoc(orgRef, updates, { merge: true });
+  return { id: orgUID, ...updates };
+};
+
+// Remove member from organization
+export const removeMemberFromOrganization = async (
+  orgUID: string,
+  memberUserId: string
+) => {
+  const membershipRef = doc(
+    db,
+    "organization_memberships",
+    `${memberUserId}_${orgUID}`
+  );
+  await deleteDoc(membershipRef); // Actually delete the document
+  return true;
+};
+
+// Get user profiles for an array of userIds from /users collection
+export const getUsersByIds = async (userIds: string[]) => {
+  if (!userIds.length) return [];
+  const results = [];
+  for (const userId of userIds) {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    if (userDoc.exists()) {
+      results.push({ userId, ...userDoc.data() });
+    }
+  }
+  return results;
 };
 
 export default app;

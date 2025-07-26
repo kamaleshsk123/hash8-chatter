@@ -41,11 +41,13 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
 import { Group, Message, TypingStatus } from "@/types";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { QrReader } from "react-qr-reader";
 import { useToast } from "@/hooks/use-toast";
 import { CreateOrganizationDialog } from "./CreateOrganizationDialog";
 import { JoinOrganizationDialog } from "./JoinOrganizationDialog";
+import ReactDOM from "react-dom";
+import { OrganizationSidebar } from "./OrganizationSidebar";
 
 interface ChatSidebarProps {
   user: any;
@@ -59,6 +61,10 @@ interface ChatSidebarProps {
   selectedChat: any;
   handleSelectChat: (chat: any) => void;
   onFeedClick: () => void;
+  view: "chat" | "feed";
+  onOrganizationSettingsClick: (org: any) => void;
+  onOrganizationUpdate?: (updatedOrg: any) => void;
+  refreshOrganizationsRef?: React.MutableRefObject<() => void>;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -73,6 +79,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   selectedChat,
   handleSelectChat,
   onFeedClick,
+  view,
+  onOrganizationSettingsClick,
+  onOrganizationUpdate,
+  refreshOrganizationsRef,
 }) => {
   const { toast } = useToast();
   const [orgDialogOpen, setOrgDialogOpen] = React.useState(false);
@@ -109,6 +119,28 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       .finally(() => {
         setOrgsLoading(false);
       });
+  };
+
+  // Expose refreshOrganizations via ref
+  useEffect(() => {
+    if (refreshOrganizationsRef) {
+      refreshOrganizationsRef.current = refreshOrganizations;
+    }
+  }, [refreshOrganizationsRef]);
+
+  // Handle organization updates from settings
+  const handleOrganizationUpdate = (updatedOrg: any) => {
+    // Update the org in the local state
+    setOrgs((prevOrgs) =>
+      prevOrgs.map((org) =>
+        org.id === updatedOrg.id ? { ...org, ...updatedOrg } : org
+      )
+    );
+
+    // Call the parent callback if provided
+    if (onOrganizationUpdate) {
+      onOrganizationUpdate(updatedOrg);
+    }
   };
 
   useEffect(() => {
@@ -171,13 +203,101 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return AVATAR_COLORS[idx];
   }
 
-  // Selected organization state
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  // Unified sidebar selection state
+  // { type: 'org' | 'chat', id: string }
+  const [selectedSidebarItem, setSelectedSidebarItem] = useState<{
+    type: "org" | "chat";
+    id: string;
+  } | null>(() => {
+    // Initialize from localStorage if available
+    const saved = localStorage.getItem("selectedSidebarItem");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // Persist selectedSidebarItem to localStorage whenever it changes
   useEffect(() => {
-    if (!selectedOrgId && orgs.length > 0) {
-      setSelectedOrgId(orgs[0].id);
+    if (selectedSidebarItem) {
+      localStorage.setItem(
+        "selectedSidebarItem",
+        JSON.stringify(selectedSidebarItem)
+      );
+    } else {
+      localStorage.removeItem("selectedSidebarItem");
     }
-  }, [orgs, selectedOrgId]);
+  }, [selectedSidebarItem]);
+
+  // On orgs or chats load, select first org or chat if nothing selected
+  useEffect(() => {
+    if (view === "feed") return;
+    if (!orgs || orgs.length === 0) {
+      if (selectedSidebarItem) setSelectedSidebarItem(null);
+      return;
+    }
+    // If there is a selectedSidebarItem, check if it exists in orgs (for org type)
+    if (selectedSidebarItem) {
+      if (
+        selectedSidebarItem.type === "org" &&
+        !orgs.some((o) => o.id === selectedSidebarItem.id)
+      ) {
+        setSelectedSidebarItem(null);
+      }
+      // If it's a chat, you can add similar logic if needed
+      return;
+    }
+    // If nothing is selected and orgs exist, select the first org
+    setSelectedSidebarItem({ type: "org", id: orgs[0].id });
+  }, [orgs, selectedSidebarItem, view]);
+
+  // Clear selection if view is 'feed'
+  useEffect(() => {
+    if (view === "feed" && selectedSidebarItem !== null) {
+      // Don't clear organization selection on page refresh
+      // Only clear if it's not an organization view
+      if (selectedSidebarItem.type !== "org") {
+        setSelectedSidebarItem(null);
+      }
+    }
+  }, [view]);
+
+  // Confirmation dialog state for switching organization
+  const [pendingOrgSwitch, setPendingOrgSwitch] = useState<string | null>(null);
+  const [lastSelectedSidebarItem, setLastSelectedSidebarItem] = useState<{
+    type: "org" | "chat";
+    id: string;
+  } | null>(null);
+
+  // Mock data for groups and members (for demo)
+  const mockGroups = [
+    { id: "g1", name: "General", members: 8 },
+    { id: "g2", name: "Design", members: 4 },
+    { id: "g3", name: "Development", members: 6 },
+  ];
+  const mockMembers = [
+    {
+      id: "u1",
+      name: "Alice Johnson",
+      avatar: "",
+      lastMessage: "See you at the meeting!",
+    },
+    {
+      id: "u2",
+      name: "Bob Smith",
+      avatar: "",
+      lastMessage: "Thanks for the update.",
+    },
+    {
+      id: "u3",
+      name: "Carol Davis",
+      avatar: "",
+      lastMessage: "Can you review the document?",
+    },
+    {
+      id: "u4",
+      name: "David Lee",
+      avatar: "",
+      lastMessage: "Let’s sync up tomorrow.",
+    },
+  ];
 
   return (
     <motion.div
@@ -185,7 +305,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       animate={{ x: 0 }}
       exit={{ x: -320 }}
       transition={{ duration: 0.2 }}
-      className="z-50 w-4/5 max-w-xs bg-chat-sidebar shadow-sidebar border-r border-border flex flex-col fixed inset-y-0 left-0 lg:static lg:w-80 lg:max-w-none">
+      className="z-50 w-4/5 max-w-xs bg-chat-sidebar shadow-sidebar border-r border-border flex flex-col fixed inset-y-0 left-0 lg:static lg:w-80 lg:min-w-80 lg:max-w-80">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
@@ -204,27 +324,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 <Moon className="w-4 h-4" />
               )}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="p-2">
-                  <Settings className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setOrgDialogOpen(true)}>
-                  <span className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    Create Organization
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setJoinDialogOpen(true)}>
-                  <span className="flex items-center gap-2">
-                    <LogIn className="w-4 h-4" />
-                    Join Organization
-                  </span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button variant="ghost" size="icon" className="p-2">
+              <Settings className="w-4 h-4" />
+            </Button>
             {/* Hide sidebar close button on desktop */}
             <Button
               variant="ghost"
@@ -268,128 +370,200 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </Button>
         </div>
       </div>
-      {/* Search */}
-      <div className="p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search groups..."
-            className="pl-10 bg-background/50"
-          />
-        </div>
-      </div>
-      {/* Organization Section */}
-      <div className="px-4 py-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Organization
-        </h2>
-      </div>
-      <div className="flex flex-col gap-3  pb-2">
-        {orgsLoading ? (
-          <div className="text-xs text-muted-foreground">Loading...</div>
-        ) : orgs.length === 0 ? (
-          <div className="text-xs text-destructive">
-            You are not in any organization.
-          </div>
-        ) : (
-          orgs.map((org) => {
-            const details = orgDetails[org.id] || {
+      {/* OrganizationSidebar: Show when org is selected */}
+      {selectedSidebarItem?.type === "org" && (
+        <OrganizationSidebar
+          org={(() => {
+            const foundOrg = orgs.find((o) => o.id === selectedSidebarItem.id);
+
+            return foundOrg;
+          })()}
+          orgDetails={
+            orgDetails[selectedSidebarItem.id] || {
               role: null,
               memberCount: null,
               loading: true,
-            };
-            let roleIcon = null;
-            let roleLabel = "";
-            if (details.role === "admin") {
-              roleIcon = <Shield className="w-4 h-4 text-primary mr-1" />;
-              roleLabel = "Admin";
-            } else if (details.role === "member") {
-              roleIcon = (
-                <UserIcon className="w-4 h-4 text-muted-foreground mr-1" />
-              );
-              roleLabel = "Member";
             }
-            const isSelected = selectedOrgId === org.id;
-            return (
-              <div
-                key={org.id}
-                className={
-                  `flex items-center gap-2 cursor-pointer rounded-lg px-2 py-2 transition-colors ` +
-                  (isSelected
-                    ? "bg-primary/10 border-l-4 border-primary rounded-r-sm rounded-l-none"
-                    : "hover:bg-muted")
+          }
+          userId={user.uid}
+          onFeedClick={onFeedClick}
+          onBack={() => setSelectedSidebarItem(null)}
+          onSettingsClick={() => {
+            const org = orgs.find((o) => o.id === selectedSidebarItem.id);
+            const details = (orgDetails[selectedSidebarItem.id] as any) || {};
+            if (org) {
+              onOrganizationSettingsClick({
+                ...org,
+                userRole: details.role,
+                memberCount: details.memberCount,
+              });
+            }
+          }}
+          onOrganizationUpdate={handleOrganizationUpdate}
+        />
+      )}
+      {/* Organization Section: Only show if no org is selected */}
+      {selectedSidebarItem?.type !== "org" && (
+        <>
+          <div className="px-4 py-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Organization
+            </h2>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Organization Actions">
+                  <Plus className="w-2 h-2 text-muted-foreground hover:text-white" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setOrgDialogOpen(true)}>
+                  <span className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4" />
+                    Create Organization
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setJoinDialogOpen(true)}>
+                  <span className="flex items-center gap-2">
+                    <LogIn className="w-4 h-4" />
+                    Join Organization
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="flex flex-col gap-3  pb-2">
+            {orgsLoading ? (
+              <div className="text-xs text-muted-foreground">Loading...</div>
+            ) : orgs.length === 0 ? (
+              <div className="pl-4 mt-[-0.5em] ">
+                <span className="text-xs text-muted-foreground  italic">
+                  You are not in any organization.
+                </span>
+              </div>
+            ) : (
+              orgs.map((org) => {
+                const details = orgDetails[org.id] || {
+                  role: null,
+                  memberCount: null,
+                  loading: true,
+                };
+                let roleIcon = null;
+                let roleLabel = "";
+                if (details.role === "admin") {
+                  roleIcon = <Shield className="w-4 h-4 text-primary mr-1" />;
+                  roleLabel = "Admin";
+                } else if (details.role === "member") {
+                  roleIcon = (
+                    <UserIcon className="w-4 h-4 text-muted-foreground mr-1" />
+                  );
+                  roleLabel = "Member";
                 }
-                onClick={() => setSelectedOrgId(org.id)}>
+                const isSelected =
+                  selectedSidebarItem?.type === "org" &&
+                  selectedSidebarItem?.id === org.id;
+                return (
+                  <div
+                    key={org.id}
+                    className={
+                      `flex items-center gap-2 cursor-pointer rounded-lg px-2 py-2 transition-colors ` +
+                      (isSelected
+                        ? "bg-primary/10 border-l-4 border-primary rounded-r-sm rounded-l-none"
+                        : "hover:bg-muted")
+                    }
+                    onClick={() => {
+                      if (
+                        selectedSidebarItem?.type === "org" &&
+                        selectedSidebarItem?.id === org.id
+                      )
+                        return;
+                      setPendingOrgSwitch(org.id);
+                      setLastSelectedSidebarItem(selectedSidebarItem);
+                    }}>
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback
+                        className={getAvatarColor(org.name || "")}>
+                        {org.name?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm text-foreground">
+                        {org.name}
+                      </span>
+                      {details.loading ? (
+                        <span className="text-xs text-muted-foreground">
+                          Loading...
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground flex items-center gap-2">
+                          {roleIcon}
+                          {roleLabel}
+                          <Users className="w-4 h-4 ml-3 mr-1 text-muted-foreground" />
+                          {details.memberCount ?? "-"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
+      {/* Chats List: Only show if no org is selected */}
+      {selectedSidebarItem?.type !== "org" && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-4 py-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Chats
+            </h2>
+          </div>
+          <div className="space-y-1">
+            {mockChats.map((chat) => (
+              <div
+                key={chat.id}
+                className={cn(
+                  "flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors",
+                  selectedSidebarItem?.type === "chat" &&
+                    selectedSidebarItem?.id === chat.id &&
+                    "bg-muted"
+                )}
+                onClick={() =>
+                  setSelectedSidebarItem({ type: "chat", id: chat.id })
+                }>
                 <Avatar className="w-8 h-8">
-                  <AvatarFallback className={getAvatarColor(org.name || "")}>
-                    {org.name?.charAt(0).toUpperCase()}
+                  <AvatarImage src={chat.avatar} alt={chat.name} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {chat.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm text-foreground">
-                    {org.name}
-                  </span>
-                  {details.loading ? (
-                    <span className="text-xs text-muted-foreground">
-                      Loading...
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground flex items-center gap-2">
-                      {roleIcon}
-                      {roleLabel}
-                      <Users className="w-4 h-4 ml-3 mr-1 text-muted-foreground" />
-                      {details.memberCount ?? "-"}
-                    </span>
-                  )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-sm text-foreground truncate">
+                    {chat.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {chat.lastMessage}
+                  </div>
                 </div>
+                {/* Optionally, show time or unread badge */}
               </div>
-            );
-          })
-        )}
-      </div>
-      {/* Chats List */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-2 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Chats
-          </h2>
+            ))}
+          </div>
         </div>
-        <div className="space-y-1">
-          {mockChats.map((chat) => (
-            <div
-              key={chat.id}
-              className={cn(
-                "flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors",
-                selectedChat?.id === chat.id && "bg-muted"
-              )}
-              onClick={() => handleSelectChat(chat)}>
-              <Avatar className="w-8 h-8">
-                <AvatarImage src={chat.avatar} alt={chat.name} />
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {chat.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-sm text-foreground truncate">
-                  {chat.name}
-                </div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {chat.lastMessage}
-                </div>
-              </div>
-              {/* Optionally, show time or unread badge */}
-            </div>
-          ))}
+      )}
+      {/* Feed button for default sidebar (no org selected) */}
+      {selectedSidebarItem?.type !== "org" && (
+        <div className="sticky bottom-0 w-full bg-chat-sidebar p-4 border-t border-border flex justify-center z-20">
+          <Button
+            className="w-full font-semibold text-base"
+            variant="default"
+            onClick={onFeedClick}>
+            Feed
+          </Button>
         </div>
-      </div>
-      <div className="sticky bottom-0 w-full bg-chat-sidebar p-4 border-t border-border flex justify-center z-20">
-        <Button
-          className="w-full font-semibold text-base"
-          variant="default"
-          onClick={onFeedClick}>
-          Feed
-        </Button>
-      </div>
+      )}
       {/* Create Organization Dialog */}
       <CreateOrganizationDialog
         open={orgDialogOpen}
@@ -404,6 +578,43 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         user={user}
         onSuccess={refreshOrganizations}
       />
+      {/* Organization Switch Confirmation Dialog (Portal) */}
+      {pendingOrgSwitch &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-lg p-8 flex flex-col items-center w-full max-w-xs">
+              <div className="mb-6 text-center">
+                <div className="text-lg font-semibold mb-2">
+                  Switch Organization?
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Are you sure you want to switch to this organization?
+                </div>
+              </div>
+              <div className="flex gap-4 w-full justify-center">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setPendingOrgSwitch(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedSidebarItem({
+                      type: "org",
+                      id: pendingOrgSwitch,
+                    });
+                    setPendingOrgSwitch(null);
+                  }}>
+                  Switch
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </motion.div>
   );
 };

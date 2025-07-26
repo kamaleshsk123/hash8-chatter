@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ChatSidebar } from "./ChatSidebar";
 import { FeedDemo } from "./FeedDemo";
+import { OrganizationSettingsView } from "./OrganizationSettingsView";
 
 // Mock data for development
 const mockGroups: Group[] = [
@@ -160,7 +161,21 @@ const Chat = () => {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<"chat" | "feed">("chat");
+  const [view, setView] = useState<"chat" | "feed">("feed");
+  const [showOrganizationSettings, setShowOrganizationSettings] =
+    useState(false);
+  const [selectedOrgForSettings, setSelectedOrgForSettings] =
+    useState<any>(null);
+  const refreshOrganizationsRef = useRef<() => void>(() => {});
+
+  // Handler for organization updates
+  const handleOrganizationUpdate = (updatedOrg: any) => {
+    setSelectedOrgForSettings(updatedOrg);
+    // Refresh sidebar organizations after update
+    if (refreshOrganizationsRef.current) {
+      refreshOrganizationsRef.current();
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -299,23 +314,50 @@ const Chat = () => {
               isDarkMode={isDarkMode}
               setIsDarkMode={setIsDarkMode}
               handleSignOut={handleSignOut}
-              mockGroups={mockGroups}
               mockChats={mockChats}
-              selectedGroup={selectedGroup}
               selectedChat={selectedChat}
-              handleSelectGroup={handleSelectGroup}
               handleSelectChat={handleSelectChat}
               onFeedClick={() => {
                 setView("feed");
                 if (isMobile) setSidebarOpen(false);
               }}
+              view={view}
+              onOrganizationSettingsClick={(org) => {
+                setSelectedOrgForSettings(org);
+                setShowOrganizationSettings(true);
+              }}
+              onOrganizationUpdate={handleOrganizationUpdate}
+              refreshOrganizationsRef={refreshOrganizationsRef}
             />
           </>
         )}
       </AnimatePresence>
       {/* Main area: show FeedDemo or Chat UI */}
-      {view === "feed" ? (
-        <FeedDemo onBack={() => setView("chat")} />
+      {showOrganizationSettings && selectedOrgForSettings ? (
+        <OrganizationSettingsView
+          org={selectedOrgForSettings}
+          orgDetails={{
+            role: selectedOrgForSettings?.userRole || "member",
+            memberCount: selectedOrgForSettings.memberCount || 0,
+            loading: false,
+          }}
+          userId={user.uid}
+          onBack={() => {
+            setShowOrganizationSettings(false);
+            setSelectedOrgForSettings(null);
+          }}
+          onOrganizationUpdate={handleOrganizationUpdate}
+        />
+      ) : view === "feed" ? (
+        <FeedDemo
+          onBack={() => {
+            if (isMobile) {
+              setSidebarOpen(true);
+            } else {
+              setView("chat");
+            }
+          }}
+        />
       ) : (
         <div className="flex-1 flex flex-col min-h-0 ">
           {/* Chat Header */}
