@@ -386,6 +386,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             }
           }
           userId={user.uid}
+          isMobile={isMobile}
+          setSidebarOpen={setSidebarOpen}
           onFeedClick={onFeedClick}
           onBack={() => setSelectedSidebarItem(null)}
           onSettingsClick={() => {
