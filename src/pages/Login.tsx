@@ -25,6 +25,7 @@ const Login = () => {
   // Email/password state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
 
@@ -82,7 +83,7 @@ const Login = () => {
     setError(null);
     setTabLoading(true);
     try {
-      await registerWithEmail(registerEmail, registerPassword);
+      await registerWithEmail(registerEmail, registerPassword, registerName);
       toast({
         title: "Account created!",
         description: "You've successfully registered.",
@@ -342,6 +343,16 @@ const Login = () => {
                   <form
                     className="space-y-3 sm:space-y-4"
                     onSubmit={handleEmailRegister}>
+                    <Input
+                      type="text"
+                      placeholder="Name"
+                      value={registerName}
+                      onChange={(e) => setRegisterName(e.target.value)}
+                      required
+                      autoComplete="name"
+                      disabled={tabLoading}
+                      className="h-10 sm:h-12 text-sm sm:text-base"
+                    />
                     <Input
                       type="email"
                       placeholder="Email"

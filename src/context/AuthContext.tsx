@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User as FirebaseUser } from "firebase/auth";
+import { upsertUserProfile } from "@/services/firebase";
+import { getDoc, doc } from "firebase/firestore";
+import { db } from "@/services/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/services/firebase";
 import { User } from "@/types";
@@ -12,7 +15,11 @@ interface AuthContextType {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  registerWithEmail: (email: string, password: string) => Promise<void>;
+  registerWithEmail: (
+    email: string,
+    password: string,
+    name?: string
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,19 +41,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    if (firebaseUser) {
-      const userData: User = {
-        uid: firebaseUser.uid,
-        name: firebaseUser.displayName || "Unknown User",
-        email: firebaseUser.email || "",
-        avatar: firebaseUser.photoURL || undefined,
-        isOnline: true,
-        lastSeen: new Date(),
-      };
-      setUser(userData);
-    } else {
-      setUser(null);
-    }
+    const fetchAndSetUser = async () => {
+      if (firebaseUser) {
+        // Upsert user profile in Firestore
+        await upsertUserProfile({
+          uid: firebaseUser.uid,
+          displayName: firebaseUser.displayName || "",
+          photoURL: firebaseUser.photoURL || "",
+        });
+        // Fetch user profile from Firestore
+        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+        let name = firebaseUser.displayName || "Unknown User";
+        let avatar = firebaseUser.photoURL || undefined;
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data.displayName) name = data.displayName;
+          if (data.avatar) avatar = data.avatar;
+        }
+        // If avatar is missing, use first letter of name
+        if (!avatar && name) {
+          avatar = undefined; // Let UI fallback to first letter
+        }
+        const userData: User = {
+          uid: firebaseUser.uid,
+          name,
+          email: firebaseUser.email || "",
+          avatar,
+          isOnline: true,
+          lastSeen: new Date(),
+        };
+        setUser(userData);
+      } else {
+        setUser(null);
+      }
+    };
+    fetchAndSetUser();
   }, [firebaseUser]);
 
   const signIn = async () => {
@@ -79,10 +108,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const registerWithEmail = async (email: string, password: string) => {
+  const registerWithEmail = async (
+    email: string,
+    password: string,
+    name?: string
+  ) => {
     const { registerWithEmail } = await import("@/services/firebase");
     try {
-      await registerWithEmail(email, password);
+      await registerWithEmail(email, password, name);
     } catch (error) {
       console.error("Register with email error:", error);
       throw error;
