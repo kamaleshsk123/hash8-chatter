@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Bookmark,
   MessageCircle,
-  ArrowLeft,
+  Menu,
   Eye,
   Send,
   ArrowUp,
@@ -297,8 +297,14 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <div className="flex flex-col h-full w-full bg-gradient-chat overflow-hidden">
       <div className="sticky top-0 z-10 bg-chat-header border-b border-border flex items-center px-4 py-3 shadow-header">
-        <Button variant="ghost" size="icon" onClick={onBack} className="mr-2">
-          <ArrowLeft className="w-5 h-5" />
+        {/* Mobile: show menu icon to open sidebar, Web: show nothing */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          className="mr-2 sm:hidden"
+          aria-label="Open sidebar">
+          <Menu className="w-5 h-5" />
         </Button>
         <h2 className="text-xl font-bold text-foreground">Organization Feed</h2>
       </div>
@@ -318,7 +324,7 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           mt-2 mb-2
           rounded-md
         `}
-        style={{ zIndex: 50 }}>
+        style={{ zIndex: 30 }}>
         <div className="flex gap-4 text-sm justify-between font-medium text-muted-foreground max-w-lg mx-auto">
           {tabOrder.map((key) => (
             <button
