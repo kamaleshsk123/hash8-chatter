@@ -25,6 +25,8 @@ interface OrganizationSidebarProps {
     loading: boolean;
   };
   userId: string; // Current user's ID
+  isMobile?: boolean; // Whether we're on mobile view
+  setSidebarOpen?: (open: boolean) => void; // Function to close sidebar on mobile
   onCreateGroup?: () => void;
   onFeedClick?: () => void;
   onBack?: () => void; // Callback to go back to main sidebar
@@ -37,6 +39,8 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   org,
   orgDetails,
   userId,
+  isMobile,
+  setSidebarOpen,
   onCreateGroup,
   onFeedClick,
   onBack,
@@ -134,7 +138,13 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                 You are not a member of this organization.
               </p>
             </div>
-            <Button onClick={onBack} variant="outline">
+            <Button
+              onClick={() => {
+                onBack();
+                // Close sidebar on mobile when going back
+                if (isMobile && setSidebarOpen) setSidebarOpen(false);
+              }}
+              variant="outline">
               Go Back
             </Button>
           </div>
@@ -153,7 +163,11 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
         <div className="px-4 pt-4 pb-2 flex flex-col gap-1 border-b border-border">
           <div
             className="flex items-center gap-3 mb-1 cursor-pointer hover:bg-muted/50 rounded-lg p-2 transition-colors"
-            onClick={onSettingsClick}>
+            onClick={() => {
+              onSettingsClick();
+              // Close sidebar on mobile when clicking organization name
+              if (isMobile && setSidebarOpen) setSidebarOpen(false);
+            }}>
             <Avatar className="w-9 h-9">
               <AvatarFallback className="bg-primary/10 text-primary">
                 {org?.name?.charAt(0).toUpperCase()}
