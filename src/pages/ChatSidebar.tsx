@@ -65,6 +65,8 @@ interface ChatSidebarProps {
   onOrganizationSettingsClick: (org: any) => void;
   onOrganizationUpdate?: (updatedOrg: any) => void;
   refreshOrganizationsRef?: React.MutableRefObject<() => void>;
+  onGroupSelect?: (group: any, org: any) => void;
+  selectedGroupId?: string;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -83,6 +85,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onOrganizationSettingsClick,
   onOrganizationUpdate,
   refreshOrganizationsRef,
+  onGroupSelect,
+  selectedGroupId,
 }) => {
   const { toast } = useToast();
   const [orgDialogOpen, setOrgDialogOpen] = React.useState(false);
@@ -402,6 +406,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             }
           }}
           onOrganizationUpdate={handleOrganizationUpdate}
+          onGroupSelect={onGroupSelect}
+          selectedGroupId={selectedGroupId}
         />
       )}
       {/* Organization Section: Only show if no org is selected */}

@@ -20,6 +20,12 @@ import {
   getDocs,
   count,
   deleteDoc,
+  orderBy,
+  limit,
+  onSnapshot,
+  updateDoc,
+  serverTimestamp,
+  Timestamp,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -279,6 +285,345 @@ export const getUsersByIds = async (userIds: string[]) => {
     }
   }
   return results;
+};
+
+// Create a new group in an organization
+export const createGroup = async (groupData: {
+  name: string;
+  description?: string;
+  organizationId: string;
+  members: string[]; // Array of user IDs
+  createdBy: string;
+}) => {
+  const groupId = crypto.randomUUID();
+  const groupRef = doc(db, `organizations/${groupData.organizationId}/groups`, groupId);
+  
+  await setDoc(groupRef, {
+    id: groupId,
+    name: groupData.name,
+    description: groupData.description || "",
+    members: groupData.members,
+    createdBy: groupData.createdBy,
+    createdAt: new Date(),
+    lastActivity: new Date(),
+  });
+  
+  return groupId;
+};
+
+// === GROUP MESSAGING FUNCTIONS ===
+
+// Get messages for a specific group
+export const getGroupMessages = async (orgId: string, groupId: string, limitCount: number = 50) => {
+  try {
+    const messagesRef = collection(db, `organizations/${orgId}/groups/${groupId}/messages`);
+    const q = query(messagesRef, orderBy('timestamp', 'asc'), limit(limitCount));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      timestamp: doc.data().timestamp?.toDate() || new Date()
+    }));
+  } catch (error) {
+    console.error('Error getting group messages:', error);
+    throw error;
+  }
+};
+
+// Send a message to a group
+export const sendGroupMessage = async (orgId: string, groupId: string, messageData: {
+  text: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  type?: 'text' | 'image' | 'file';
+}) => {
+  try {
+    const messageId = crypto.randomUUID();
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    
+    const messageDoc = {
+      id: messageId,
+      groupId: groupId,
+      text: messageData.text,
+      senderId: messageData.senderId,
+      senderName: messageData.senderName,
+      senderAvatar: messageData.senderAvatar || '',
+      type: messageData.type || 'text',
+      timestamp: serverTimestamp(),
+      reactions: [],
+      isEdited: false,
+      readBy: []
+    };
+    
+    await setDoc(messageRef, messageDoc);
+    
+    // Update group's lastActivity
+    const groupRef = doc(db, `organizations/${orgId}/groups`, groupId);
+    await updateDoc(groupRef, {
+      lastActivity: serverTimestamp()
+    });
+    
+    return messageId;
+  } catch (error) {
+    console.error('Error sending group message:', error);
+    throw error;
+  }
+};
+
+// Real-time message listener for a group
+export const subscribeToGroupMessages = (
+  orgId: string, 
+  groupId: string, 
+  onSuccess: (messages: any[]) => void,
+  onError?: (error: Error) => void
+) => {
+  const messagesRef = collection(db, `organizations/${orgId}/groups/${groupId}/messages`);
+  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    console.log('Message subscription update received:', snapshot.docs.length, 'messages');
+    const messages = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        groupId: data.groupId || groupId,
+        senderId: data.senderId,
+        senderName: data.senderName,
+        senderAvatar: data.senderAvatar || '',
+        text: data.text,
+        type: data.type || 'text',
+        timestamp: data.timestamp?.toDate() || new Date(),
+        reactions: data.reactions || [],
+        isEdited: data.isEdited || false,
+        readBy: data.readBy || []
+      };
+    });
+    console.log('Parsed messages:', messages);
+    onSuccess(messages);
+  }, (error) => {
+    console.error('Error in message subscription:', error);
+    if (onError) {
+      onError(error);
+    }
+  });
+};
+
+// Add reaction to a message
+export const addMessageReaction = async (orgId: string, groupId: string, messageId: string, emoji: string, userId: string) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    const messageDoc = await getDoc(messageRef);
+    
+    if (!messageDoc.exists()) {
+      throw new Error('Message not found');
+    }
+    
+    const messageData = messageDoc.data();
+    const reactions = messageData.reactions || [];
+    
+    // Find existing reaction with this emoji
+    const existingReactionIndex = reactions.findIndex((r: any) => r.emoji === emoji);
+    
+    if (existingReactionIndex >= 0) {
+      // Reaction exists, toggle user
+      const existingReaction = reactions[existingReactionIndex];
+      const userIndex = existingReaction.userIds.indexOf(userId);
+      
+      if (userIndex >= 0) {
+        // User already reacted, remove them
+        existingReaction.userIds.splice(userIndex, 1);
+        if (existingReaction.userIds.length === 0) {
+          // Remove reaction if no users left
+          reactions.splice(existingReactionIndex, 1);
+        }
+      } else {
+        // User hasn't reacted, add them
+        existingReaction.userIds.push(userId);
+      }
+    } else {
+      // New reaction
+      reactions.push({ emoji, userIds: [userId] });
+    }
+    
+    await updateDoc(messageRef, { reactions });
+  } catch (error) {
+    console.error('Error adding message reaction:', error);
+    throw error;
+  }
+};
+
+// Update typing status in a group
+export const updateTypingStatus = async (orgId: string, groupId: string, userId: string, userName: string, isTyping: boolean) => {
+  try {
+    const typingRef = doc(db, `organizations/${orgId}/groups/${groupId}/typing`, userId);
+    
+    if (isTyping) {
+      await setDoc(typingRef, {
+        userId,
+        userName,
+        timestamp: serverTimestamp(),
+        isTyping: true
+      });
+    } else {
+      await deleteDoc(typingRef);
+    }
+  } catch (error) {
+    console.error('Error updating typing status:', error);
+  }
+};
+
+// Subscribe to typing indicators in a group
+export const subscribeToTypingIndicators = (orgId: string, groupId: string, callback: (typingUsers: any[]) => void) => {
+  const typingRef = collection(db, `organizations/${orgId}/groups/${groupId}/typing`);
+  
+  return onSnapshot(typingRef, (snapshot) => {
+    const typingUsers = snapshot.docs
+      .map(doc => doc.data())
+      .filter(user => {
+        // Filter out old typing indicators (older than 10 seconds)
+        const timestamp = user.timestamp?.toDate();
+        if (!timestamp) return false;
+        const now = new Date();
+        return (now.getTime() - timestamp.getTime()) < 10000; // 10 seconds
+      });
+    callback(typingUsers);
+  });
+};
+
+// Get group details with member info
+export const getGroupDetails = async (orgId: string, groupId: string) => {
+  try {
+    const groupRef = doc(db, `organizations/${orgId}/groups`, groupId);
+    const groupDoc = await getDoc(groupRef);
+    
+    if (!groupDoc.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const groupData = groupDoc.data();
+    
+    // Get member profiles
+    if (groupData.members && groupData.members.length > 0) {
+      const memberProfiles = await getUsersByIds(groupData.members);
+      groupData.memberProfiles = memberProfiles;
+    }
+    
+    return { id: groupDoc.id, ...groupData };
+  } catch (error) {
+    console.error('Error getting group details:', error);
+    throw error;
+  }
+};
+
+// Mark messages as read for a user
+export const markGroupMessagesAsRead = async (orgId: string, groupId: string, userId: string, lastReadMessageId: string) => {
+  try {
+    const readStatusRef = doc(db, `organizations/${orgId}/groups/${groupId}/readStatus`, userId);
+    await setDoc(readStatusRef, {
+      userId,
+      lastReadMessageId,
+      lastReadAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+    throw error;
+  }
+};
+
+// Get unread message count for a user in a group
+export const getUnreadMessageCount = async (orgId: string, groupId: string, userId: string) => {
+  try {
+    const readStatusRef = doc(db, `organizations/${orgId}/groups/${groupId}/readStatus`, userId);
+    const readStatusDoc = await getDoc(readStatusRef);
+    
+    if (!readStatusDoc.exists()) {
+      // No read status, count all messages
+      const messagesRef = collection(db, `organizations/${orgId}/groups/${groupId}/messages`);
+      const snapshot = await getDocs(messagesRef);
+      return snapshot.size;
+    }
+    
+    const readStatus = readStatusDoc.data();
+    const lastReadAt = readStatus.lastReadAt?.toDate();
+    
+    if (!lastReadAt) return 0;
+    
+    // Count messages after last read timestamp
+    const messagesRef = collection(db, `organizations/${orgId}/groups/${groupId}/messages`);
+    const q = query(messagesRef, where('timestamp', '>', lastReadAt));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.size;
+  } catch (error) {
+    console.error('Error getting unread message count:', error);
+    return 0;
+  }
+};
+
+// Add read receipt to a message
+export const markMessageAsRead = async (
+  orgId: string, 
+  groupId: string, 
+  messageId: string, 
+  userId: string, 
+  userName: string, 
+  userAvatar?: string
+) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    const messageDoc = await getDoc(messageRef);
+    
+    if (!messageDoc.exists()) {
+      console.error('Message not found:', messageId);
+      return;
+    }
+    
+    const messageData = messageDoc.data();
+    const readBy = messageData.readBy || [];
+    
+    // Check if user has already marked this message as read
+    const existingReadIndex = readBy.findIndex((receipt: any) => receipt.userId === userId);
+    
+    if (existingReadIndex >= 0) {
+      // Update existing read receipt timestamp
+      readBy[existingReadIndex].readAt = new Date();
+    } else {
+      // Add new read receipt
+      readBy.push({
+        userId,
+        userName,
+        userAvatar: userAvatar || '',
+        readAt: new Date()
+      });
+    }
+    
+    await updateDoc(messageRef, { readBy });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+  }
+};
+
+// Mark multiple messages as read (for when user scrolls through messages)
+export const markMultipleMessagesAsRead = async (
+  orgId: string,
+  groupId: string,
+  messageIds: string[],
+  userId: string,
+  userName: string,
+  userAvatar?: string
+) => {
+  try {
+    const batch = [];
+    
+    for (const messageId of messageIds) {
+      batch.push(markMessageAsRead(orgId, groupId, messageId, userId, userName, userAvatar));
+    }
+    
+    await Promise.all(batch);
+  } catch (error) {
+    console.error('Error marking multiple messages as read:', error);
+  }
 };
 
 export default app;

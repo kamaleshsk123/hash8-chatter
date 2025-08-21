@@ -15,6 +15,8 @@ import {
   getOrganizationMembers,
   getUsersByIds,
 } from "@/services/firebase";
+import { CreateGroupDialog } from "./CreateGroupDialog";
+import { formatTimeAgo } from "@/lib/time";
 
 // Types for props
 interface OrganizationSidebarProps {
@@ -32,6 +34,8 @@ interface OrganizationSidebarProps {
   onBack?: () => void; // Callback to go back to main sidebar
   onSettingsClick?: () => void; // Callback to open organization settings
   onOrganizationUpdate?: (updatedOrg: any) => void; // Callback for organization updates
+  onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
+  selectedGroupId?: string; // Currently selected group ID
   // Add more props as needed for real group/member data
 }
 
@@ -46,6 +50,8 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   onBack,
   onSettingsClick,
   onOrganizationUpdate,
+  onGroupSelect,
+  selectedGroupId,
 }) => {
   // Real group and member data
   const [groups, setGroups] = useState<any[]>([]);
@@ -54,6 +60,18 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
   const [membersLoading, setMembersLoading] = useState(false);
   const [isNotMember, setIsNotMember] = useState(false);
+  
+  // Dialog state
+  const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
+
+  // Function to refresh groups after creating a new one
+  const refreshGroups = () => {
+    if (!org?.id) return;
+    setGroupsLoading(true);
+    getOrganizationGroups(org.id)
+      .then(setGroups)
+      .finally(() => setGroupsLoading(false));
+  };
 
   useEffect(() => {
     if (!org?.id) return;
@@ -217,7 +235,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
             size="icon"
             variant="ghost"
             className="p-1"
-            onClick={onCreateGroup}>
+            onClick={() => setCreateGroupDialogOpen(true)}>
             <Plus className="w-5 h-5" />
           </Button>
         </div>
@@ -229,23 +247,53 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
               No Groups Available
             </div>
           ) : (
-            groups.map((group) => (
-              <div
-                key={group.id}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors">
-                <Avatar className="w-7 h-7">
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {group.name?.charAt(0).toUpperCase() || "G"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <span className="font-medium text-sm text-foreground">
-                    {group.name || group.id}
-                  </span>
+            groups.map((group) => {
+              const memberCount = group.members?.length || 0;
+              const lastActivity = group.lastActivity || group.createdAt;
+              const timeAgo = lastActivity ? formatTimeAgo(new Date(lastActivity.seconds ? lastActivity.seconds * 1000 : lastActivity)) : null;
+              
+              const isSelected = selectedGroupId === group.id;
+              
+              return (
+                <div
+                  key={group.id}
+                  className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                    isSelected 
+                      ? "bg-primary/10 border-l-4 border-primary rounded-r-sm rounded-l-none" 
+                      : "hover:bg-muted"
+                  }`}
+                  onClick={() => {
+                    if (onGroupSelect) {
+                      onGroupSelect(group, org);
+                    }
+                    // Close sidebar on mobile when selecting a group
+                    if (isMobile && setSidebarOpen) {
+                      setSidebarOpen(false);
+                    }
+                  }}>
+                  <Avatar className="w-7 h-7 mt-0.5">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {group.name?.charAt(0).toUpperCase() || "G"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm text-foreground truncate">
+                      {group.name || group.id}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                      <Users className="w-3 h-3 flex-shrink-0" />
+                      <span>{memberCount} {memberCount === 1 ? 'member' : 'members'}</span>
+                      {timeAgo && (
+                        <>
+                          <span className="mx-1">•</span>
+                          <span className="truncate">{timeAgo}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {/* Optionally show group member count if available: <span className="text-xs text-muted-foreground">{group.members?.length || "-"} members</span> */}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         {/* Chat Section: Use real data if available */}
@@ -321,6 +369,15 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
           Feed
         </Button>
       </div>
+      
+      {/* Create Group Dialog */}
+      <CreateGroupDialog
+        open={createGroupDialogOpen}
+        onOpenChange={setCreateGroupDialogOpen}
+        org={org}
+        userId={userId}
+        onSuccess={refreshGroups}
+      />
     </div>
   );
 };

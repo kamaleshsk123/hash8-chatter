@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Message } from "@/types";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { MessageReadReceipts } from "@/components/MessageReadReceipts";
 
 interface ChatBubbleProps {
   message: Message;
@@ -70,6 +71,16 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             </span>
           </div>
         </div>
+        
+        {/* Read receipts - only show for own messages */}
+        {isOwnMessage && (
+          <MessageReadReceipts
+            readBy={message.readBy}
+            currentUserId={user?.uid || ""}
+            isOwnMessage={isOwnMessage}
+            className="mr-2 mt-1"
+          />
+        )}
       </div>
     </motion.div>
   );
