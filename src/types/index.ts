@@ -29,6 +29,14 @@ export interface Message {
   type: 'text' | 'image' | 'file';
   reactions?: Reaction[];
   isEdited?: boolean;
+  readBy?: ReadReceipt[];
+}
+
+export interface ReadReceipt {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  readAt: Date;
 }
 
 export interface Reaction {
