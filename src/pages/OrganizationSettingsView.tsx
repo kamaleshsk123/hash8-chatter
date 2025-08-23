@@ -46,6 +46,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { RoleBadge } from "@/components/RoleBadge";
+import { MemberRoleActions } from "@/components/moderation/MemberRoleActions";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface OrganizationSettingsViewProps {
   org: any;
@@ -77,6 +80,7 @@ export const OrganizationSettingsView: React.FC<
   const [removingMember, setRemovingMember] = useState(false);
 
   const isAdmin = orgDetails?.role === "admin";
+  const permissions = usePermissions(orgDetails?.role as any);
 
   // Fetch members when component mounts
   useEffect(() => {
@@ -85,8 +89,13 @@ export const OrganizationSettingsView: React.FC<
     getOrganizationMembers(org.id)
       .then(async (members) => {
         setMembers(members);
-        // Fetch user profiles for all member userIds
+        // Fetch user profiles for all member userIds, including current user
         const userIds = members.map((m: any) => m.userId).filter(Boolean);
+        // Ensure current user is included in the list
+        if (!userIds.includes(userId)) {
+          userIds.push(userId);
+        }
+        
         if (userIds.length) {
           const profiles = await getUsersByIds(userIds);
           const profileMap: Record<string, any> = {};
@@ -426,19 +435,10 @@ export const OrganizationSettingsView: React.FC<
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {member.role === "admin" ? (
-                              <>
-                                <Crown className="w-3 h-3 mr-1" />
-                                Admin
-                              </>
-                            ) : (
-                              <>
-                                <UserIcon className="w-3 h-3 mr-1" />
-                                Member
-                              </>
-                            )}
-                          </Badge>
+                          <RoleBadge 
+                            role={member.role || 'member'} 
+                            size="sm" 
+                          />
                           <span className="text-xs text-muted-foreground">
                             Joined{" "}
                             {new Date(
@@ -447,23 +447,32 @@ export const OrganizationSettingsView: React.FC<
                           </span>
                         </div>
                       </div>
-                      {isAdmin && !isCurrentUser && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              onClick={() => setMemberToRemove(member)}>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Remove Member
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {/* Unified Member Actions */}
+                        {orgDetails?.role && userId && org?.id && (
+                          <MemberRoleActions
+                            member={{
+                              userId: member.userId,
+                              role: member.role || 'member',
+                              displayName: profile?.displayName,
+                              name: profile?.name,
+                              email: profile?.email
+                            }}
+                            currentUserRole={orgDetails.role as any}
+                            currentUserId={userId}
+                            currentUserName={userProfiles[userId]?.displayName || userProfiles[userId]?.name || userProfiles[userId]?.email || 'Current User'}
+                            organizationId={org.id}
+                            showRemoveAction={isAdmin}
+                            onRoleChange={() => {
+                              // Refresh members list
+                              if (org?.id) {
+                                getOrganizationMembers(org.id).then(setMembers);
+                              }
+                            }}
+                            onRemoveMember={(memberToRemove) => setMemberToRemove(memberToRemove)}
+                          />
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -471,6 +480,34 @@ export const OrganizationSettingsView: React.FC<
             )}
           </CardContent>
         </Card>
+
+        {/* Moderation Section */}
+        {permissions.canAccessModerationDashboard && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                Moderation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Access moderation tools and view recent actions in this organization.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // We'll implement this navigation later
+                  // For now, just show a placeholder
+                }}
+                className="w-full"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Open Moderation Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Admin Only Section */}
         {isAdmin && (
