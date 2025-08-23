@@ -31,19 +31,19 @@ const Login = () => {
 
   useEffect(() => {
     if (user) {
+      toast({
+        title: "Welcome to Hash8 Intranet!",
+        description: "You've successfully signed in.",
+      });
       navigate("/chat");
     }
-  }, [user, navigate]);
+  }, [user, navigate, toast]);
 
   const handleGoogleSignIn = async () => {
     setError(null);
     setTabLoading(true);
     try {
       await signIn();
-      toast({
-        title: "Welcome to Hash8 Intranet!",
-        description: "You've successfully signed in.",
-      });
     } catch (error) {
       setError("Google sign in failed. Please try again.");
       toast({
@@ -62,10 +62,6 @@ const Login = () => {
     setTabLoading(true);
     try {
       await signInWithEmail(loginEmail, loginPassword);
-      toast({
-        title: "Welcome!",
-        description: "You've successfully signed in.",
-      });
     } catch (err: any) {
       setError(err.message || "Login failed.");
       toast({
@@ -84,10 +80,6 @@ const Login = () => {
     setTabLoading(true);
     try {
       await registerWithEmail(registerEmail, registerPassword, registerName);
-      toast({
-        title: "Account created!",
-        description: "You've successfully registered.",
-      });
     } catch (err: any) {
       setError(err.message || "Registration failed.");
       toast({

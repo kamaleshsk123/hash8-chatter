@@ -8,8 +8,17 @@ import { ChatBubble } from "@/components/ChatBubble";
 import { GroupListItem } from "@/components/GroupListItem";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { useAuth } from "@/context/AuthContext";
-import { Group, Message, TypingStatus } from "@/types";
+import { Group, Message, TypingStatus, User } from "@/types";
 import { cn } from "@/lib/utils";
+import {
+  subscribeToGroupMessages,
+  sendGroupMessage,
+  subscribeToTypingIndicators,
+  updateTypingStatus,
+  markMessageAsRead,
+  getUsersByIds,
+  subscribeToUserStatus,
+} from "@/services/firebase";
 import {
   Send,
   Menu,
@@ -22,10 +31,24 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ChatSidebar } from "./ChatSidebar";
 import { FeedDemo } from "./FeedDemo";
+import { YourFeed } from "./YourFeed";
 import { OrganizationSettingsView } from "./OrganizationSettingsView";
 
 // Mock data for development
@@ -147,26 +170,57 @@ const mockChats = [
 const Chat = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(
-    mockGroups[0]
-  );
+
+  // Early return if user is not available
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
+  // Group and chat state
+  const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
+  const [selectedOrg, setSelectedOrg] = useState<any | null>(null);
   const [selectedChat, setSelectedChat] = useState<any | null>(null);
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [directMessages, setDirectMessages] = useState<{
     [chatId: string]: Message[];
   }>({});
+  const [groupMembers, setGroupMembers] = useState<User[]>([]);
+  const [groupMemberStatuses, setGroupMemberStatuses] = useState<
+    Record<string, any>
+  >({});
+
+  // Input and interaction state
   const [newMessage, setNewMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState<TypingStatus[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+
+  // Loading states
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  // UI state
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<"chat" | "feed">("feed");
+  const [view, setView] = useState<"chat" | "feed" | "your-feed">("your-feed");
   const [showOrganizationSettings, setShowOrganizationSettings] =
     useState(false);
   const [selectedOrgForSettings, setSelectedOrgForSettings] =
     useState<any>(null);
   const refreshOrganizationsRef = useRef<() => void>(() => {});
+
+  // Real-time subscriptions
+  const messageUnsubscribeRef = useRef<(() => void) | null>(null);
+  const typingUnsubscribeRef = useRef<(() => void) | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
 
   // Handler for organization updates
   const handleOrganizationUpdate = (updatedOrg: any) => {
@@ -189,33 +243,222 @@ const Chat = () => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !user) return;
+  // Real-time message subscription for selected group
+  useEffect(() => {
+    // Clean up previous subscriptions
+    if (messageUnsubscribeRef.current) {
+      messageUnsubscribeRef.current();
+      messageUnsubscribeRef.current = null;
+    }
+    if (typingUnsubscribeRef.current) {
+      typingUnsubscribeRef.current();
+      typingUnsubscribeRef.current = null;
+    }
 
-    if (selectedGroup) {
-      const message: Message = {
-        id: `msg_${Date.now()}`,
-        groupId: selectedGroup.id,
-        senderId: user.uid,
-        senderName: user.name,
-        senderAvatar: user.avatar,
-        text: newMessage.trim(),
-        timestamp: new Date(),
-        type: "text",
+    if (selectedGroup && selectedOrg) {
+      setMessagesLoading(true);
+
+      // Subscribe to group messages
+      messageUnsubscribeRef.current = subscribeToGroupMessages(
+        selectedOrg.id,
+        selectedGroup.id,
+        (messages) => {
+          setMessages(messages);
+          setMessagesLoading(false);
+
+          // Mark messages as read
+          if (user) {
+            messages.forEach((message) => {
+              if (
+                message.senderId !== user.uid &&
+                !message.readBy?.some((r) => r.userId === user.uid)
+              ) {
+                markMessageAsRead(
+                  selectedOrg.id,
+                  selectedGroup.id,
+                  message.id,
+                  user.uid,
+                  user.name || user.email || "",
+                  user.avatar || ""
+                );
+              }
+            });
+          }
+        },
+        (error) => {
+          console.error("Error subscribing to messages:", error);
+          setMessagesLoading(false);
+          toast({
+            title: "Error",
+            description: "Failed to load messages. Please try again.",
+            variant: "destructive",
+          });
+        }
+      );
+
+      // Subscribe to typing indicators
+      typingUnsubscribeRef.current = subscribeToTypingIndicators(
+        selectedOrg.id,
+        selectedGroup.id,
+        (typingStatuses) => {
+          // Filter out current user's typing status
+          const filteredTyping = typingStatuses.filter(
+            (status) => status.userId !== user?.uid
+          );
+          setTypingUsers(filteredTyping);
+        }
+      );
+    } else {
+      // Clear messages when no group is selected
+      setMessages([]);
+      setTypingUsers([]);
+      setMessagesLoading(false);
+    }
+
+    // Cleanup function
+    return () => {
+      if (messageUnsubscribeRef.current) {
+        messageUnsubscribeRef.current();
+        messageUnsubscribeRef.current = null;
+      }
+      if (typingUnsubscribeRef.current) {
+        typingUnsubscribeRef.current();
+        typingUnsubscribeRef.current = null;
+      }
+    };
+  }, [selectedGroup, selectedOrg, user?.uid, toast]);
+
+  // Handle typing indicator updates
+  useEffect(() => {
+    if (selectedGroup && selectedOrg && user && newMessage) {
+      if (!isTyping) {
+        setIsTyping(true);
+        updateTypingStatus(
+          selectedOrg.id,
+          selectedGroup.id,
+          user.uid,
+          user.name,
+          true
+        );
+      }
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Set new timeout to stop typing indicator
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+        updateTypingStatus(
+          selectedOrg.id,
+          selectedGroup.id,
+          user.uid,
+          user.name,
+          false
+        );
+      }, 2000);
+    } else if (isTyping) {
+      // Stop typing if message is empty
+      setIsTyping(false);
+      if (selectedGroup && selectedOrg && user) {
+        updateTypingStatus(
+          selectedOrg.id,
+          selectedGroup.id,
+          user.uid,
+          user.name,
+          false
+        );
+      }
+    }
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [newMessage, selectedGroup, selectedOrg, user, isTyping]);
+
+  // Fetch group members and subscribe to their statuses
+  useEffect(() => {
+    if (selectedGroup?.members && selectedGroup.members.length > 0) {
+      const fetchMembers = async () => {
+        try {
+          const memberDetails = await getUsersByIds(selectedGroup.members);
+          setGroupMembers(memberDetails as User[]);
+        } catch (error) {
+          console.error("Error fetching group members:", error);
+          toast({
+            title: "Error",
+            description: "Could not load group members.",
+            variant: "destructive",
+          });
+        }
       };
-      setMessages((prev) => [...prev, message]);
-      setNewMessage("");
-      // toast({
-      //   title: "Message sent!",
-      //   description: "Your message has been delivered.",
-      // });
+      fetchMembers();
+
+      const unsubscribe = subscribeToUserStatus(
+        selectedGroup.members,
+        (statuses) => {
+          setGroupMemberStatuses(statuses);
+        }
+      );
+
+      return () => {
+        unsubscribe();
+      };
+    } else {
+      setGroupMembers([]);
+      setGroupMemberStatuses({});
+    }
+  }, [selectedGroup, toast]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !user || sendingMessage) return;
+
+    if (selectedGroup && selectedOrg) {
+      setSendingMessage(true);
+
+      try {
+        await sendGroupMessage(selectedOrg.id, selectedGroup.id, {
+          text: newMessage.trim(),
+          type: "text",
+          senderId: user.uid,
+          senderName: user.name || user.email || "Unknown User",
+          senderAvatar: user.avatar || "",
+        });
+
+        setNewMessage("");
+
+        // Stop typing indicator since message was sent
+        if (isTyping) {
+          setIsTyping(false);
+          updateTypingStatus(
+            selectedOrg.id,
+            selectedGroup.id,
+            user.uid,
+            user.name,
+            false
+          );
+        }
+      } catch (error) {
+        console.error("Error sending message:", error);
+        toast({
+          title: "Error",
+          description: "Failed to send message. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setSendingMessage(false);
+      }
     } else if (selectedChat) {
+      // Keep direct message logic as mock for now
       const message: Message = {
         id: `dm_${Date.now()}`,
         groupId: "",
         senderId: user.uid,
-        senderName: user.name,
-        senderAvatar: user.avatar,
+        senderName: user.name || user.email || "Unknown User",
+        senderAvatar: user.avatar || "",
         text: newMessage.trim(),
         timestamp: new Date(),
         type: "text",
@@ -226,10 +469,7 @@ const Chat = () => {
         return { ...prev, [chatId]: [...prevMsgs, message] };
       });
       setNewMessage("");
-      // toast({
-      //   title: "Message sent!",
-      //   description: "Your message has been delivered.",
-      // });
+
       // Add a mock reply from the other user after a short delay
       setTimeout(() => {
         setDirectMessages((prev) => {
@@ -272,22 +512,33 @@ const Chat = () => {
     }
   };
 
-  const handleSelectGroup = (group: Group) => {
+  const handleSelectGroup = (group: any, org: any) => {
+    // Close organization settings if open
+    if (showOrganizationSettings) {
+      setShowOrganizationSettings(false);
+      setSelectedOrgForSettings(null);
+    }
     setSelectedGroup(group);
+    setSelectedOrg(org);
     setSelectedChat(null);
     setView("chat");
     if (isMobile) setSidebarOpen(false);
   };
+
   const handleSelectChat = (chat: any) => {
+    // Close organization settings if open
+    if (showOrganizationSettings) {
+      setShowOrganizationSettings(false);
+      setSelectedOrgForSettings(null);
+    }
     setSelectedChat(chat);
     setSelectedGroup(null);
+    setSelectedOrg(null);
     setView("chat");
     if (isMobile) setSidebarOpen(false);
   };
 
-  const groupMessages = messages.filter(
-    (msg) => msg.groupId === selectedGroup?.id
-  );
+  // All messages are already filtered by the Firebase subscription
 
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-chat-bg">
@@ -318,6 +569,21 @@ const Chat = () => {
               selectedChat={selectedChat}
               handleSelectChat={handleSelectChat}
               onFeedClick={() => {
+                // Close organization settings if open
+                if (showOrganizationSettings) {
+                  setShowOrganizationSettings(false);
+                  setSelectedOrgForSettings(null);
+                }
+                setView("your-feed");
+                if (isMobile) setSidebarOpen(false);
+              }}
+              onOrgFeedClick={(org) => {
+                // Close organization settings if open
+                if (showOrganizationSettings) {
+                  setShowOrganizationSettings(false);
+                  setSelectedOrgForSettings(null);
+                }
+                setSelectedOrg(org);
                 setView("feed");
                 if (isMobile) setSidebarOpen(false);
               }}
@@ -328,6 +594,8 @@ const Chat = () => {
               }}
               onOrganizationUpdate={handleOrganizationUpdate}
               refreshOrganizationsRef={refreshOrganizationsRef}
+              onGroupSelect={handleSelectGroup}
+              selectedGroupId={showOrganizationSettings || view === "feed" || view === "your-feed" ? null : selectedGroup?.id}
             />
           </>
         )}
@@ -357,6 +625,17 @@ const Chat = () => {
               setView("chat");
             }
           }}
+          org={selectedOrg}
+        />
+      ) : view === "your-feed" ? (
+        <YourFeed
+          onBack={() => {
+            if (isMobile) {
+              setSidebarOpen(true);
+            } else {
+              setView("chat");
+            }
+          }}
         />
       ) : (
         <div className="flex-1 flex flex-col min-h-0 ">
@@ -368,7 +647,8 @@ const Chat = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden mr-2">
+                className="lg:hidden mr-2"
+              >
                 <Menu className="w-5 h-5" />
               </Button>
               {selectedGroup && (
@@ -416,41 +696,192 @@ const Chat = () => {
             </div>
             <div className="flex items-center gap-2">
               {selectedGroup && (
-                <Button variant="ghost" size="icon">
-                  <Users className="w-4 h-4" />
-                </Button>
+                <>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Users className="w-4 h-4" />
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right">
+                      <SheetHeader>
+                        <SheetTitle>Group Members</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-4">
+                        <ul className="flex flex-col gap-4">
+                          {groupMembers.length > 0 ? (
+                            groupMembers.map((member: any, idx: number) => {
+                              if (!member || !member.userId) {
+                                // Changed to member.userId
+                                return null; // Skip rendering if member is undefined or userId is missing
+                              }
+                              const displayName =
+                                member.displayName ||
+                                member.name ||
+                                member.userId; // Changed to member.userId
+                              const avatarUrl = member.avatar || "";
+                              const status = groupMemberStatuses[member.userId]; // Changed to member.userId
+                              const isOnline =
+                                status?.isOnline &&
+                                status.lastSeen &&
+                                new Date().getTime() -
+                                  status.lastSeen.toDate().getTime() <
+                                  300000; // 5 minutes
+
+                              return (
+                                <li
+                                  key={member.userId}
+                                  className="flex items-center gap-3"
+                                >
+                                  <Avatar className="w-9 h-9">
+                                    {avatarUrl ? (
+                                      <img
+                                        src={avatarUrl}
+                                        alt={displayName}
+                                        className="w-9 h-9 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <AvatarFallback className="bg-primary/10 text-primary">
+                                        {displayName.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div className="flex-grow">
+                                    <p className="font-semibold">
+                                      {displayName}
+                                    </p>
+                                    {isOnline ? (
+                                      <p className="text-xs text-green-500">
+                                        Online
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground">
+                                        Offline
+                                      </p>
+                                    )}
+                                  </div>
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <p>No members found.</p>
+                          )}
+                        </ul>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          toast({ title: "Functionality not yet implemented." })
+                        }
+                      >
+                        Add Member
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          toast({ title: "Functionality not yet implemented." })
+                        }
+                      >
+                        Leave Group
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() =>
+                          toast({ title: "Functionality not yet implemented." })
+                        }
+                      >
+                        View Group Info
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
               )}
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
             </div>
           </div>
           {/* Main chat scrollable area */}
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto bg-gradient-chat px-2 sm:px-4 lg:px-0">
               <div className="py-4 px-2 w-full">
-                <AnimatePresence>
-                  {(selectedGroup
-                    ? groupMessages
-                    : directMessages[selectedChat?.id] || []
-                  ).map((message, index, arr) => {
-                    const prevMessage = arr[index - 1];
-                    const isConsecutive =
-                      prevMessage &&
-                      prevMessage.senderId === message.senderId &&
-                      message.timestamp.getTime() -
-                        prevMessage.timestamp.getTime() <
-                        60000;
-                    return (
-                      <ChatBubble
-                        key={message.id}
-                        message={message}
-                        isConsecutive={isConsecutive}
-                      />
-                    );
-                  })}
-                </AnimatePresence>
-                <TypingIndicator typingUsers={typingUsers} />
+                {messagesLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Empty state for no messages */}
+                    {(selectedGroup
+                      ? messages
+                      : directMessages[selectedChat?.id] || []
+                    ).length === 0 &&
+                      !messagesLoading && (
+                        <div className="flex flex-col items-center justify-center h-64 text-center">
+                          <div className="text-muted-foreground mb-2">
+                            {selectedGroup ? (
+                              <>
+                                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <h3 className="text-lg font-medium mb-2">
+                                  Welcome to {selectedGroup.name}!
+                                </h3>
+                                <p className="text-sm">
+                                  Start the conversation by sending the first
+                                  message.
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-12 h-12 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                                  <span className="text-lg">
+                                    {selectedChat?.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <h3 className="text-lg font-medium mb-2">
+                                  Chat with {selectedChat?.name}
+                                </h3>
+                                <p className="text-sm">
+                                  Send a message to start your conversation.
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    <AnimatePresence>
+                      {(selectedGroup
+                        ? messages
+                        : directMessages[selectedChat?.id] || []
+                      ).map((message, index, arr) => {
+                        const prevMessage = arr[index - 1];
+                        const isConsecutive =
+                          prevMessage &&
+                          prevMessage.senderId === message.senderId &&
+                          message.timestamp.getTime() -
+                            prevMessage.timestamp.getTime() <
+                            60000;
+                        return (
+                          <ChatBubble
+                            key={message.id}
+                            message={message}
+                            isConsecutive={isConsecutive}
+                            currentUserRole={selectedOrg?.userRole}
+                            organizationId={selectedOrg?.id}
+                            groupId={selectedGroup?.id}
+                            onMessageDeleted={() => {
+                              // Refresh messages when a message is deleted
+                              // The subscription should handle this automatically
+                            }}
+                          />
+                        );
+                      })}
+                    </AnimatePresence>
+                    <TypingIndicator typingUsers={typingUsers} />
+                  </>
+                )}
                 <div ref={messagesEndRef} />
               </div>
             </div>
@@ -475,7 +906,8 @@ const Chat = () => {
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim()}
                   size="icon"
-                  className="bg-primary hover:bg-primary-hover w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
+                  className="bg-primary hover:bg-primary-hover w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
+                >
                   <Send className="w-4 h-4" />
                 </Button>
               </div>

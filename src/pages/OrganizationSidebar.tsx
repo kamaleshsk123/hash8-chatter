@@ -14,7 +14,10 @@ import {
   getOrganizationGroups,
   getOrganizationMembers,
   getUsersByIds,
+  subscribeToUserStatus,
 } from "@/services/firebase";
+import { CreateGroupDialog } from "./CreateGroupDialog";
+import { formatTimeAgo } from "@/lib/time";
 
 // Types for props
 interface OrganizationSidebarProps {
@@ -32,6 +35,8 @@ interface OrganizationSidebarProps {
   onBack?: () => void; // Callback to go back to main sidebar
   onSettingsClick?: () => void; // Callback to open organization settings
   onOrganizationUpdate?: (updatedOrg: any) => void; // Callback for organization updates
+  onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
+  selectedGroupId?: string; // Currently selected group ID
   // Add more props as needed for real group/member data
 }
 
@@ -46,6 +51,8 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   onBack,
   onSettingsClick,
   onOrganizationUpdate,
+  onGroupSelect,
+  selectedGroupId,
 }) => {
   // Real group and member data
   const [groups, setGroups] = useState<any[]>([]);
@@ -54,70 +61,71 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
   const [membersLoading, setMembersLoading] = useState(false);
   const [isNotMember, setIsNotMember] = useState(false);
+  const [memberStatuses, setMemberStatuses] = useState<Record<string, any>>({});
 
-  useEffect(() => {
+  const roleOrder: { [key: string]: number } = {
+    admin: 1,
+    moderator: 2,
+    member: 3,
+  };
+  
+  // Dialog state
+  const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
+
+  // Function to refresh groups after creating a new one
+  const refreshGroups = () => {
     if (!org?.id) return;
-    // console.log("OrganizationSidebar: Fetching data for org:", org.id);
-    // console.log("OrganizationSidebar: Current userId:", userId);
-
     setGroupsLoading(true);
     getOrganizationGroups(org.id)
       .then(setGroups)
       .finally(() => setGroupsLoading(false));
+  };
+
+  useEffect(() => {
+    if (!org?.id) return;
+
+    setGroupsLoading(true);
     setMembersLoading(true);
+
     getOrganizationMembers(org.id)
       .then(async (members) => {
-        // console.log("OrganizationSidebar: Fetched members:", members);
         setMembers(members);
 
-        // Check if current user is still a member
-        const isCurrentUserMember = members.some(
-          (m: any) => m.userId === userId
-        );
-        // console.log(
-        //   "OrganizationSidebar: Is current user member?",
-        //   isCurrentUserMember
-        // );
-        // console.log("OrganizationSidebar: Looking for userId:", userId);
-        // console.log(
-        //   "OrganizationSidebar: Available member userIds:",
-        //   members.map((m: any) => m.userId)
-        // );
-
+        const isCurrentUserMember = members.some((m: any) => m.userId === userId);
         if (!isCurrentUserMember) {
-          // console.log(
-          //   "OrganizationSidebar: User is not a member, setting isNotMember to true"
-          // );
-          // User is no longer a member, show not member state
           setIsNotMember(true);
           return;
         }
-
-        // console.log(
-        //   "OrganizationSidebar: User is still a member, setting isNotMember to false"
-        // );
         setIsNotMember(false);
 
-        // Fetch user profiles for all member userIds
         const userIds = members.map((m: any) => m.userId).filter(Boolean);
-        if (userIds.length) {
-          const profiles = await getUsersByIds(userIds);
-          // Map by userId for quick lookup
-          const profileMap: Record<string, any> = {};
-          profiles.forEach((p: any) => {
-            profileMap[p.userId] = p;
+        if (userIds.length > 0) {
+          getUsersByIds(userIds).then((profiles) => {
+            const profileMap: Record<string, any> = {};
+            profiles.forEach((p: any) => {
+              profileMap[p.userId] = p;
+            });
+            setUserProfiles(profileMap)
           });
-          setUserProfiles(profileMap);
+          const unsubscribe = subscribeToUserStatus(userIds, (statuses) => {
+            setMemberStatuses(statuses);
+          });
+          return () => unsubscribe();
         } else {
           setUserProfiles({});
         }
       })
       .finally(() => setMembersLoading(false));
-  }, [org?.id, userId]);
 
-  // console.log("OrganizationSidebar: isNotMember state:", isNotMember);
-  // console.log("OrganizationSidebar: org:", org);
-  // console.log("OrganizationSidebar: userId:", userId);
+    getOrganizationGroups(org.id)
+      .then((groups) => {
+        const userInGroups = groups.filter((group) =>
+          group.members.includes(userId)
+        );
+        setGroups(userInGroups);
+      })
+      .finally(() => setGroupsLoading(false));
+  }, [org?.id, userId]);
 
   // Show not member message if user is not a member
   if (isNotMember) {
@@ -153,8 +161,6 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
     );
   }
 
-  //   console.log("OrganizationSidebar rendered");
-
   return (
     <div className="flex flex-col h-full">
       {/* Main scrollable content */}
@@ -185,7 +191,9 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                     <span className="mx-2">•</span>
                     <span className="flex items-center gap-1">
                       {orgDetails.role === "admin" ? (
-                        <Shield className="w-4 h-4 text-primary" />
+                        <Shield className="w-4 h-4 text-yellow-600" />
+                      ) : orgDetails.role === "moderator" ? (
+                        <Shield className="w-4 h-4 text-blue-600" />
                       ) : (
                         <UserIcon className="w-4 h-4 text-muted-foreground" />
                       )}
@@ -217,7 +225,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
             size="icon"
             variant="ghost"
             className="p-1"
-            onClick={onCreateGroup}>
+            onClick={() => setCreateGroupDialogOpen(true)}>
             <Plus className="w-5 h-5" />
           </Button>
         </div>
@@ -229,29 +237,59 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
               No Groups Available
             </div>
           ) : (
-            groups.map((group) => (
-              <div
-                key={group.id}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors">
-                <Avatar className="w-7 h-7">
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {group.name?.charAt(0).toUpperCase() || "G"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <span className="font-medium text-sm text-foreground">
-                    {group.name || group.id}
-                  </span>
+            groups.map((group) => {
+              const memberCount = group.members?.length || 0;
+              const lastActivity = group.lastActivity || group.createdAt;
+              const timeAgo = lastActivity ? formatTimeAgo(new Date(lastActivity.seconds ? lastActivity.seconds * 1000 : lastActivity)) : null;
+              
+              const isSelected = selectedGroupId === group.id;
+              
+              return (
+                <div
+                  key={group.id}
+                  className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                    isSelected 
+                      ? "bg-primary/10 border-l-4 border-primary rounded-r-sm rounded-l-none" 
+                      : "hover:bg-muted"
+                  }`}
+                  onClick={() => {
+                    if (onGroupSelect) {
+                      onGroupSelect(group, org);
+                    }
+                    // Close sidebar on mobile when selecting a group
+                    if (isMobile && setSidebarOpen) {
+                      setSidebarOpen(false);
+                    }
+                  }}>
+                  <Avatar className="w-7 h-7 mt-0.5">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {group.name?.charAt(0).toUpperCase() || "G"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm text-foreground truncate">
+                      {group.name || group.id}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                      <Users className="w-3 h-3 flex-shrink-0" />
+                      <span>{memberCount} {memberCount === 1 ? 'member' : 'members'}</span>
+                      {timeAgo && (
+                        <>
+                          <span className="mx-1">•</span>
+                          <span className="truncate">{timeAgo}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {/* Optionally show group member count if available: <span className="text-xs text-muted-foreground">{group.members?.length || "-"} members</span> */}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         {/* Chat Section: Use real data if available */}
         <div className="px-4 py-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Chat
+            Members
           </h2>
         </div>
         <div className="flex flex-col gap-1 px-4 pb-2">
@@ -265,28 +303,42 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
           ) : (
             members
               .filter((member) => member.userId !== userId)
+              .sort((a, b) => {
+                const roleA = a.role || "member";
+                const roleB = b.role || "member";
+                return roleOrder[roleA] - roleOrder[roleB];
+              })
               .map((member, idx) => {
                 const profile = userProfiles[member.userId] || {};
                 const displayName =
                   profile.displayName || member.userId || `Member ${idx + 1}`;
                 const avatarUrl = profile.avatar || "";
+                const status = memberStatuses[member.userId];
+                const isOnline = status?.isOnline && new Date().getTime() - status.lastSeen.toDate().getTime() < 300000; // 5 minutes
+
                 return (
                   <div
                     key={member.userId || idx}
                     className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors">
-                    <Avatar className="w-8 h-8">
-                      {avatarUrl ? (
-                        <img
-                          src={avatarUrl}
-                          alt={displayName}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          {displayName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar className="w-8 h-8">
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt={displayName}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {displayName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div
+                        className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
+                        title={isOnline ? 'Online' : 'Offline'}
+                      />
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm text-foreground truncate">
                         {displayName}
@@ -300,7 +352,6 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
               })
           )}
         </div>
-        {/* {console.log("Rendering section: CHAT")} */}
       </div>
       {/* Global button above Feed section */}
       <div className="px-4 pb-2 flex justify-end">
@@ -321,6 +372,15 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
           Feed
         </Button>
       </div>
+      
+      {/* Create Group Dialog */}
+      <CreateGroupDialog
+        open={createGroupDialogOpen}
+        onOpenChange={setCreateGroupDialogOpen}
+        org={org}
+        userId={userId}
+        onSuccess={refreshGroups}
+      />
     </div>
   );
 };

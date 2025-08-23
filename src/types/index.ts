@@ -5,6 +5,30 @@ export interface User {
   avatar?: string;
   isOnline?: boolean;
   lastSeen?: Date;
+  role?: UserRole;
+}
+
+export type UserRole = 'admin' | 'moderator' | 'member';
+
+export interface ModeratorPermissions {
+  canManageMessages: boolean;
+  canManageMembers: boolean;
+  canManageGroups: boolean;
+  canViewReports: boolean;
+  canBanUsers: boolean;
+}
+
+export interface ModerationAction {
+  id: string;
+  actionType: 'delete_message' | 'ban_user' | 'warn_user' | 'delete_group' | 'promote_user' | 'demote_user';
+  targetId: string; // message ID, user ID, or group ID
+  targetName?: string; // name of the target for display
+  moderatorId: string;
+  moderatorName: string;
+  reason: string;
+  timestamp: Date;
+  organizationId: string;
+  details?: any; // Additional action-specific data
 }
 
 export interface Group {
@@ -29,6 +53,19 @@ export interface Message {
   type: 'text' | 'image' | 'file';
   reactions?: Reaction[];
   isEdited?: boolean;
+  readBy?: ReadReceipt[];
+  deleted?: boolean;
+  deletedBy?: string;
+  deletedAt?: Date;
+  deletionReason?: string;
+  originalText?: string;
+}
+
+export interface ReadReceipt {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  readAt: Date;
 }
 
 export interface Reaction {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User as FirebaseUser } from "firebase/auth";
-import { upsertUserProfile } from "@/services/firebase";
+import { upsertUserProfile, updateUserStatus } from "@/services/firebase";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
@@ -53,10 +53,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
         let name = firebaseUser.displayName || "Unknown User";
         let avatar = firebaseUser.photoURL || undefined;
+        let role: User['role'] = 'member'; // Default role
         if (userDoc.exists()) {
           const data = userDoc.data();
           if (data.displayName) name = data.displayName;
           if (data.avatar) avatar = data.avatar;
+          if (data.role) role = data.role; // Assign role from Firestore
         }
         // If avatar is missing, use first letter of name
         if (!avatar && name) {
@@ -69,9 +71,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           avatar,
         isOnline: true,
           lastSeen: new Date(),
+        role,
       };
       setUser(userData);
+      updateUserStatus(firebaseUser.uid, true);
     } else {
+      if (user) {
+        updateUserStatus(user.uid, false);
+      }
       setUser(null);
     }
     };
@@ -91,6 +98,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = async () => {
     const { signOutUser } = await import("@/services/firebase");
     try {
+      if (user) {
+        await updateUserStatus(user.uid, false);
+      }
       await signOutUser();
     } catch (error) {
       console.error("Sign out error:", error);

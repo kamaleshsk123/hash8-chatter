@@ -12,131 +12,53 @@ import {
   List,
   User,
   Plus,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 import { AddPostInput } from "./AddPostInput";
 import { formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { useSwipeable } from "react-swipeable";
+import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, onSnapshot } from "firebase/firestore";
+import { db } from "../services/firebase";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { RoleBadge } from "@/components/RoleBadge";
 
-const demoPosts = [
-  {
-    id: 1,
-    user: { name: "Alice Johnson", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
-    text: "Enjoying the new office view! #worklife",
-    comments: [
-      { id: 1, user: "Bob Smith", text: "Looks amazing!" },
-      { id: 2, user: "Carol Davis", text: "Great shot!" },
-    ],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 2,
-    user: { name: "Bob Smith", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80",
-    text: "Team lunch was a blast! 🍕",
-    comments: [{ id: 1, user: "Alice Johnson", text: "Wish I was there!" }],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 3,
-    user: { name: "Carol Davis", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1720884413532-59289875c3e1?q=80&w=735&auto=format&fit=crop&w=400&q=80",
-    text: "Design sprint in progress! Loving the creativity. 🎨",
-    comments: [
-      { id: 1, user: "Alice Johnson", text: "Can't wait to see the results!" },
-    ],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 4,
-    user: { name: "David Lee", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80",
-    text: "Morning coffee with the dev team ☕️",
-    comments: [
-      { id: 1, user: "Bob Smith", text: "Best way to start the day!" },
-    ],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 5,
-    user: { name: "Emily Clark", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1526779259212-939e64788e3c?q=80&w=1174&auto=format&fit=crop&w=400&q=80",
-    text: "Just finished a 5k run with colleagues! 🏃‍♂️🏃‍♀️",
-    comments: [{ id: 1, user: "David Lee", text: "Impressive!" }],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 6,
-    user: { name: "Frank Miller", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1519985176271-adb1088fa94c?auto=format&fit=crop&w=400&q=80",
-    text: "Friday happy hour at the rooftop bar! 🍻",
-    comments: [{ id: 1, user: "Emily Clark", text: "So much fun!" }],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 7,
-    user: { name: "Grace Kim", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=400&q=80",
-    text: "Team brainstorming session. Ideas are flowing! 💡",
-    comments: [{ id: 1, user: "Frank Miller", text: "Great energy!" }],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 8,
-    user: { name: "Hannah Brown", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80",
-    text: "Lunch break with the besties! 🥗",
-    comments: [{ id: 1, user: "Grace Kim", text: "Yum!" }],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 9,
-    user: { name: "Ian Turner", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
-    text: "Wrapping up a productive week. Happy Friday everyone! 🎉",
-    comments: [{ id: 1, user: "Hannah Brown", text: "Well deserved!" }],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-  {
-    id: 10,
-    user: { name: "Julia Evans", avatar: "" },
-    image:
-      "https://images.unsplash.com/photo-1721132447246-5d33f3008b05?q=80&w=735&auto=format&fit=crop&w=400&q=80",
-    text: "Excited for the upcoming company retreat! 🏞️",
-    comments: [{ id: 1, user: "Ian Turner", text: "Can't wait!" }],
-    reactions: {},
-    timestamp: new Date(),
-    seenBy: [],
-  },
-];
+interface Post {
+  id: string;
+  user: { name: string; avatar: string; role?: string };
+  image?: string;
+  text: string;
+  reactions: { [emoji: string]: string[] };
+  timestamp: Date;
+  seenBy: string[];
+  savedBy?: string[];
+}
+
+interface Comment {
+  id: string;
+  user: string;
+  avatar?: string;
+  text: string;
+  timestamp: Date;
+}
+
 
 const emojiList = ["👍", "❤️", "😂", "🎉"];
 
@@ -147,23 +69,89 @@ const tabLabels = {
   saved: "Saved",
 };
 
-export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [saved, setSaved] = useState<{ [postId: number]: boolean }>({});
-  const [posts, setPosts] = useState(demoPosts);
+export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, org }) => {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [hasAddedTestPosts, setHasAddedTestPosts] = useState(false);
+  
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddPostInput, setShowAddPostInput] = useState(false);
   const addPostRef = React.useRef<HTMLDivElement>(null);
   const feedAreaRef = React.useRef<HTMLDivElement>(null);
   const [showWebAddButton, setShowWebAddButton] = useState(false);
-  const currentUser = "You";
-  const [activeCommentPostId, setActiveCommentPostId] = useState<number | null>(
+  const { user: currentUser } = useAuth();
+  
+
+  const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(
     null
   );
   const [commentText, setCommentText] = useState<string>("");
   const [showStickyTabs, setShowStickyTabs] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); // "all", "my", "saved"
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [comments, setComments] = useState<{ [postId: string]: Comment[] }>({});
+  const [expandedComments, setExpandedComments] = useState<{ [postId: string]: boolean }>({});
   // Inside your component
   const tabRef = useRef<HTMLDivElement>(null);
   const [isSticky, setIsSticky] = useState(false);
+
+  useEffect(() => {
+    if (org && org.userRole) {
+      console.log("User role from Organization Feed:", org.userRole);
+    }
+  }, [org]);
+
+  // Fetch posts from Firebase in real-time
+  useEffect(() => {
+    const postsCol = collection(db, "posts");
+    const q = query(postsCol, orderBy("timestamp", "desc"));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const postsData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp.toDate(), // Convert Firebase Timestamp to Date object
+      })) as Post[];
+
+      setPosts(postsData);
+      setLoading(false);
+      
+      // Add test posts if no posts exist and we haven't added them yet
+      if (postsData.length === 0 && !hasAddedTestPosts) {
+        const testPosts: Post[] = [
+          {
+            id: 'test-admin-post',
+            user: { name: 'Test Admin', avatar: '', role: 'admin' },
+            text: '🔴 ADMIN POST - Moderators should NOT see delete button',
+            timestamp: new Date(),
+            reactions: {},
+            seenBy: [],
+            savedBy: []
+          },
+          {
+            id: 'test-member-post',
+            user: { name: 'Test Member', avatar: '', role: 'member' },
+            text: '🟢 MEMBER POST - Admins and Moderators should see delete button',
+            timestamp: new Date(),
+            reactions: {},
+            seenBy: [],
+            savedBy: []
+          }
+        ];
+        setPosts(testPosts);
+        setHasAddedTestPosts(true);
+      }
+    }, (err) => {
+      console.error("Error fetching posts:", err);
+      setError("Failed to load posts.");
+      setLoading(false);
+    });
+
+    // Unsubscribe from the listener when the component unmounts
+    return () => unsubscribe();
+  }, []);
 
   // Web: Show plus icon when AddPostInput is out of view
   useEffect(() => {
@@ -174,15 +162,6 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const handleScroll = () => {
       const addPostRect = addPostRef.current!.getBoundingClientRect();
       const tabRect = tabRef.current!.getBoundingClientRect();
-      // Debug log
-      // console.log(
-      //   "addPostRect.bottom:",
-      //   addPostRect.bottom,
-      //   "tabRect.bottom:",
-      //   tabRect.bottom,
-      //   "show:",
-      //   addPostRect.bottom < tabRect.bottom
-      // );
       // Show the up-arrow button if AddPostInput is hidden behind the sticky tabs
       setShowWebAddButton(addPostRect.bottom < tabRect.bottom);
     };
@@ -209,17 +188,27 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }, [showAddPostInput]);
 
   useEffect(() => {
-    const updated = posts.map((post) => {
+    posts.forEach(async (post) => {
       if (!post.seenBy?.includes(currentUser)) {
-        return {
-          ...post,
-          seenBy: [...(post.seenBy || []), currentUser],
-        };
+        try {
+          const postRef = doc(db, "posts", post.id);
+          await updateDoc(postRef, {
+            seenBy: arrayUnion(currentUser),
+          });
+          // Update local state after successful Firebase update
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === post.id
+                ? { ...p, seenBy: [...(p.seenBy || []), currentUser] }
+                : p
+            )
+          );
+        } catch (error) {
+          console.error("Error updating seenBy:", error);
+        }
       }
-      return post;
     });
-    setPosts(updated);
-  }, []);
+  }, [posts, currentUser]); // Depend on posts and currentUser
 
   useEffect(() => {
     const handleScroll = () => {
@@ -241,37 +230,102 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
   }, []);
 
-  const handleNewPost = (newPost: { text: string; image?: string }) => {
-    const post = {
-      id: Date.now(),
-      user: {
-        name: "You",
-        avatar: "",
-      },
-      image: newPost.image || "",
-      text: newPost.text,
-      timestamp: new Date(),
-      reactions: {},
-      comments: [],
-      seenBy: [], // Fix: add seenBy property
-    };
-    setPosts([post, ...posts]);
+  useEffect(() => {
+    posts.forEach((post) => {
+      const commentsCol = collection(db, "posts", post.id, "comments");
+      const q = query(commentsCol, orderBy("timestamp", "asc"));
+
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const commentsData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp.toDate(),
+        })) as Comment[];
+        setComments((prev) => ({ ...prev, [post.id]: commentsData }));
+      });
+
+      return () => unsubscribe();
+    });
+  }, [posts]);
+
+  const handleNewPost = async (newPost: { text: string; image?: string }) => {
+    if (!currentUser) return;
+    try {
+      const postData = {
+        user: {
+          name: currentUser.name,
+          avatar: currentUser.avatar || "",
+          role: currentUser.role || 'member', // Store author's role at time of posting
+        },
+        image: newPost.image || "",
+        text: newPost.text,
+        timestamp: serverTimestamp(), // Use Firebase server timestamp
+        reactions: {},
+        seenBy: [],
+      };
+      const docRef = await addDoc(collection(db, "posts"), postData);
+      setPosts((prevPosts) => [
+        {
+          ...postData,
+          id: docRef.id,
+          timestamp: new Date(), // Use current date for immediate UI update
+        } as Post,
+        ...prevPosts,
+      ]);
+    } catch (error) {
+      console.error("Error adding post:", error);
+      alert("Failed to add post. Please try again.");
+    }
   };
 
-  const toggleReaction = (postId: number, emoji: string) => {
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              reactions: {
-                ...p.reactions,
-                [emoji]: (p.reactions?.[emoji] || 0) + 1,
-              },
-            }
-          : p
-      )
-    );
+  const toggleReaction = async (postId: string, emoji: string) => {
+    if (!currentUser) return;
+
+    const postRef = doc(db, "posts", postId);
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+
+    const currentReactions = post.reactions || {};
+    const usersForEmoji = currentReactions[emoji] || [];
+    const userHasReacted = usersForEmoji.includes(currentUser.name);
+
+    let updatedReactions: { [emoji: string]: string[] } = { ...currentReactions };
+
+    if (userHasReacted) {
+      updatedReactions[emoji] = usersForEmoji.filter(
+        (name) => name !== currentUser.name
+      );
+    } else {
+      updatedReactions[emoji] = [...usersForEmoji, currentUser.name];
+    }
+
+    // Remove emoji from reactions if no one is reacting with it anymore
+    if (updatedReactions[emoji].length === 0) {
+      delete updatedReactions[emoji];
+    }
+
+    try {
+      await updateDoc(postRef, { reactions: updatedReactions });
+    } catch (error) {
+      console.error("Error updating reaction:", error);
+      alert("Failed to update reaction. Please try again.");
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!postToDelete || !currentUser) return;
+
+    try {
+      // Delete the post from Firebase
+      await deleteDoc(doc(db, "posts", postToDelete));
+
+      // Update local state
+      setPosts((prev) => prev.filter((p) => p.id !== postToDelete));
+      setIsDeleteDialogOpen(false);
+      setPostToDelete(null);
+    } catch (error) {
+      alert("Failed to delete post. Please try again.");
+    }
   };
 
   // Swipe handlers for mobile
@@ -293,6 +347,14 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     trackMouse: false,
     delta: 40,
   });
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-full">Loading feed...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center h-full text-red-500">Error: {error}</div>;
+  }
 
   return (
     <div className="flex flex-col h-full w-full bg-gradient-chat overflow-hidden">
@@ -316,10 +378,9 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           bg-white dark:bg-background sm:my-4 border-t sm:border-b shadow-sm
           w-3/4 sm:w-[31em] mx-auto  px-4 pt-3 pb-2
           transition-all z-40
-          ${
-            isSticky
-              ? "sm:fixed sm:top-16  sm:-translate-x-1/2 sm:w-[31em]"
-              : ""
+          ${isSticky
+            ? "sm:fixed sm:top-16  sm:-translate-x-1/2 sm:w-[31em]"
+            : ""
           }
           mt-2 mb-2
           rounded-md
@@ -330,11 +391,10 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-1 pb-1 border-b-2 ${
-                activeTab === key
-                  ? "border-primary text-primary font-semibold"
-                  : "border-transparent"
-              }`}>
+              className={`flex items-center gap-1 pb-1 border-b-2 ${activeTab === key
+                ? "border-primary text-primary font-semibold"
+                : "border-transparent"
+                }`}>
               {key === "all" && <List className="w-4 h-4" />}
               {key === "my" && <User className="w-4 h-4" />}
               {key === "saved" && <Bookmark className="w-4 h-4" />}
@@ -353,14 +413,6 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           if (addPostRef.current && tabRef.current) {
             const addPostRect = addPostRef.current.getBoundingClientRect();
             const tabRect = tabRef.current.getBoundingClientRect();
-            // console.log(
-            //   "addPostRect.bottom:",
-            //   addPostRect.bottom,
-            //   "tabRect.bottom:",
-            //   tabRect.bottom,
-            //   "show:",
-            //   addPostRect.bottom < tabRect.bottom
-            // );
             setShowWebAddButton(addPostRect.bottom < tabRect.bottom);
           }
         }}>
@@ -388,9 +440,10 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
           {/* Posts or empty state */}
           {(() => {
+            if (!currentUser) return null;
             const filteredPosts = posts.filter((post) => {
-              if (activeTab === "my") return post.user.name === currentUser;
-              if (activeTab === "saved") return saved[post.id];
+              if (activeTab === "my") return post.user.name === currentUser.name;
+              if (activeTab === "saved") return post.savedBy?.includes(currentUser.uid);
               return true; // "all"
             });
             if (filteredPosts.length === 0) {
@@ -411,170 +464,229 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               );
             }
             return filteredPosts.map((post) => (
-              <div
-                key={post.id}
-                className="bg-white rounded-xl shadow p-4 max-w-lg mx-auto">
-                <div className="flex items-center justify-between mb-2">
-                  {/* Left: Avatar + Name */}
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-9 h-9">
-                      <AvatarImage
-                        src={post.user.avatar}
-                        alt={post.user.name}
-                      />
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {post.user.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-semibold text-foreground">
-                      {post.user.name}
-                    </span>
-                  </div>
-
-                  {/* Right: Eye icon + view count */}
-                  {post.seenBy?.length > 0 && (
-                    <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                      <Eye className="w-4 h-4" />
-                      <span>{post.seenBy.length} </span>
-                    </div>
-                  )}
-                </div>
-
-                {post.image && (
-                  <img
-                    src={post.image}
-                    alt="post"
-                    className="rounded-lg w-full h-56 object-cover mb-3"
-                  />
-                )}
-                <p className="mb-2 text-foreground">{post.text}</p>
-                <div className="text-xs text-muted-foreground mb-2">
-                  {formatDistanceToNow(new Date(post.timestamp), {
-                    addSuffix: true,
-                  })}
-                </div>
-
-                {/* Reactions */}
-                <div className="flex gap-2 mb-2">
-                  {emojiList.map((emoji) => (
-                    <button
-                      key={emoji}
-                      className="text-lg hover:scale-110 transition-transform"
-                      onClick={() => toggleReaction(post.id, emoji)}>
-                      {emoji} {post.reactions?.[emoji] || ""}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Buttons */}
-                <div className="flex items-center gap-4 mb-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex items-center gap-1"
-                    onClick={() =>
-                      setActiveCommentPostId(
-                        activeCommentPostId === post.id ? null : post.id
-                      )
-                    }>
-                    <MessageCircle className="w-4 h-4" />
-                    <span>{post.comments.length}</span>
-                  </Button>
-
-                  <Button
-                    variant={saved[post.id] ? "default" : "ghost"}
-                    size="sm"
-                    className="flex items-center gap-1"
-                    onClick={() =>
-                      setSaved((s) => ({ ...s, [post.id]: !s[post.id] }))
-                    }>
-                    <Bookmark className="w-4 h-4" />
-                    <span>{saved[post.id] ? "Saved" : "Save"}</span>
-                  </Button>
-                </div>
-
-                {/* Comments */}
-                <div className="space-y-1">
-                  {post.comments
-                    .slice(-3) // Only show the last 3 comments
-                    .map((c) => (
-                      <div key={c.id} className="text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">
-                          {c.user}:
-                        </span>{" "}
-                        {c.text}
+              <div key={post.id} className="overflow-hidden">
+                <div className="bg-card rounded-lg border border-border shadow-sm">
+                  <div className="p-0">
+                    {/* Post Header */}
+                    <div className="flex items-center gap-3 p-4 pb-2">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={post.user.avatar} alt={post.user.name} />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {post.user.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-sm">{post.user.name === currentUser?.name ? "You" : post.user.name}</h3>
+                            {post.user.role === 'admin' && <RoleBadge role="admin" size="sm" />}
+                          </div>
+                          <span className="text-muted-foreground text-xs">
+                            {formatDistanceToNow(post.timestamp, { addSuffix: true })}
+                          </span>
+                        </div>
                       </div>
-                    ))}
-
-                  {post.comments.length > 3 && (
-                    <div className="text-xs text-muted-foreground italic">
-                      View all {post.comments.length} comments
+                      {currentUser && (post.user.name === currentUser.name || org.userRole === 'admin' || (org.userRole === 'moderator' && post.user.role !== 'admin')) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="w-8 h-8">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setPostToDelete(post.id);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              className="text-red-500"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Post
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
-                  )}
 
-                  {activeCommentPostId === post.id && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Input
-                        placeholder="Add a comment..."
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        onKeyDown={(e) => {
-                          const trimmed = commentText.trim();
-                          if (e.key === "Enter" && trimmed) {
-                            setPosts((prev) =>
-                              prev.map((p) =>
-                                p.id === post.id
-                                  ? {
-                                      ...p,
-                                      comments: [
-                                        ...p.comments,
-                                        {
-                                          id: Date.now(),
-                                          user: currentUser,
-                                          text: trimmed,
-                                        },
-                                      ],
-                                    }
-                                  : p
-                              )
-                            );
-                            setCommentText("");
-                            setActiveCommentPostId(null);
-                          }
-                        }}
-                        className="flex-1 text-sm"
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={!commentText.trim()}
-                        onClick={() => {
-                          const trimmed = commentText.trim();
-                          if (!trimmed) return;
-                          setPosts((prev) =>
-                            prev.map((p) =>
-                              p.id === post.id
-                                ? {
-                                    ...p,
-                                    comments: [
-                                      ...p.comments,
-                                      {
-                                        id: Date.now(),
-                                        user: currentUser,
-                                        text: trimmed,
-                                      },
-                                    ],
-                                  }
-                                : p
+                    {/* Post Content */}
+                    <div className="px-4 pb-2">
+                      <p className="text-sm leading-relaxed">{post.text}</p>
+                    </div>
+
+                    {/* Post Image */}
+                    {post.image && (
+                      <div className="relative">
+                        <img
+                          src={post.image}
+                          alt="Post content"
+                          className="w-full h-64 object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {/* Reactions */}
+                    {Object.keys(post.reactions).length > 0 && (
+                      <div className="px-4 py-2 border-b border-border">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {Object.entries(post.reactions).map(([emoji, users]) => (
+                            <Button
+                              key={emoji}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleReaction(post.id, emoji)}
+                              className={`h-6 px-2 text-xs ${(users as string[]).includes(currentUser)
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-muted-foreground'
+                                }`}
+                            >
+                              {emoji} {(users as string[]).length}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Post Actions */}
+                    <div className="flex items-center justify-between p-4 pt-2">
+                      <div className="flex items-center gap-1">
+                        {emojiList.map((emoji) => (
+                          <Button
+                            key={emoji}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleReaction(post.id, emoji)}
+                            className="h-8 w-8 p-0 text-lg hover:scale-110 transition-transform"
+                          >
+                            {emoji}
+                          </Button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex items-center gap-1 text-muted-foreground"
+                                                    onClick={() =>
+                            setActiveCommentPostId(
+                              activeCommentPostId === post.id ? null : post.id
                             )
-                          );
-                          setCommentText("");
-                          setActiveCommentPostId(null);
-                        }}>
-                        <Send className="w-4 h-4" />
-                      </Button>
+                          }
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          <span className="text-xs">{comments[post.id]?.length || 0}</span>
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`flex items-center gap-1 ${post.savedBy?.includes(currentUser.uid) ? 'text-primary' : 'text-muted-foreground'
+                            }`}
+                          onClick={async () => {
+                            if (!currentUser) return;
+                            const postRef = doc(db, "posts", post.id);
+
+                            const isCurrentlySaved = (post.savedBy || []).includes(currentUser.uid);
+
+                            try {
+                              if (isCurrentlySaved) {
+                                await updateDoc(postRef, { savedBy: arrayRemove(currentUser.uid) });
+                              } else {
+                                await updateDoc(postRef, { savedBy: arrayUnion(currentUser.uid) });
+                              }
+                            } catch (error) {
+                              console.error("Error updating saved status:", error);
+                              alert("Failed to update saved status. Please try again.");
+                            }
+                          }}
+                        >
+                          <Bookmark className={`w-4 h-4 ${post.savedBy?.includes(currentUser.uid) ? 'fill-current' : ''}`} />
+                        </Button>
+
+                        <Button variant="ghost" size="sm" className="flex items-center gap-1 text-muted-foreground">
+                          <Eye className="w-4 h-4" />
+                          <span className="text-xs">{post.seenBy.length}</span>
+                        </Button>
+                      </div>
                     </div>
-                  )}
+
+                    {/* Comments */}
+                    {(comments[post.id] && comments[post.id].length > 0 || activeCommentPostId === post.id) && (
+                      <div className="px-4 pb-4 border-t border-border pt-2">
+                        {(expandedComments[post.id] ? comments[post.id] : comments[post.id].slice(-3)).map((comment) => (
+                          <div key={comment.id} className="flex items-start gap-2 mt-2">
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={comment.avatar} />
+                              <AvatarFallback className="bg-muted text-xs">
+                                {comment.user.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <span className="font-medium text-xs">{comment.user}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{comment.text}</span>
+                            </div>
+                          </div>
+                        ))}
+
+                        {comments[post.id] && comments[post.id].length > 3 && (
+                          <button
+                            onClick={() => setExpandedComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))}
+                            className="text-xs text-muted-foreground italic mt-2 hover:underline"
+                          >
+                            {expandedComments[post.id] ? "Show less" : `View all ${comments[post.id].length} comments`}
+                          </button>
+                        )}
+
+                        {activeCommentPostId === post.id && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Input
+                              placeholder="Add a comment..."
+                              value={commentText}
+                              onChange={(e) => setCommentText(e.target.value)}
+                              onKeyDown={async (e) => {
+                                if (!currentUser) return;
+                                const trimmed = commentText.trim();
+                                if (e.key === "Enter" && trimmed) {
+                                  const commentsCol = collection(db, "posts", post.id, "comments");
+                                  await addDoc(commentsCol, {
+                                    user: currentUser.name,
+                                    avatar: currentUser.avatar || "",
+                                    text: trimmed,
+                                    timestamp: serverTimestamp(),
+                                  });
+                                  setCommentText("");
+                                  setActiveCommentPostId(null);
+                                }
+                              }}
+                              className="flex-1 text-sm"
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              disabled={!commentText.trim()}
+                              onClick={async () => {
+                                if (!currentUser) return;
+                                const trimmed = commentText.trim();
+                                if (!trimmed) return;
+                                const commentsCol = collection(db, "posts", post.id, "comments");
+                                await addDoc(commentsCol, {
+                                  user: currentUser.name,
+                                  avatar: currentUser.avatar || "",
+                                  text: trimmed,
+                                  timestamp: serverTimestamp(),
+                                });
+                                setCommentText("");
+                                setActiveCommentPostId(null);
+                              }}
+                            >
+                              <Send className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ));
@@ -605,6 +717,23 @@ export const FeedDemo: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <Plus className="w-5 h-5" />
         </button>
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your post.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePost} className="bg-red-500 hover:bg-red-600">
+              Delete Post
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

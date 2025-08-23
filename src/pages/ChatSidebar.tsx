@@ -61,10 +61,13 @@ interface ChatSidebarProps {
   selectedChat: any;
   handleSelectChat: (chat: any) => void;
   onFeedClick: () => void;
-  view: "chat" | "feed";
+  onOrgFeedClick?: () => void;
+  view: "chat" | "feed" | "your-feed";
   onOrganizationSettingsClick: (org: any) => void;
   onOrganizationUpdate?: (updatedOrg: any) => void;
   refreshOrganizationsRef?: React.MutableRefObject<() => void>;
+  onGroupSelect?: (group: any, org: any) => void;
+  selectedGroupId?: string;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -79,10 +82,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   selectedChat,
   handleSelectChat,
   onFeedClick,
+  onOrgFeedClick,
   view,
   onOrganizationSettingsClick,
   onOrganizationUpdate,
   refreshOrganizationsRef,
+  onGroupSelect,
+  selectedGroupId,
 }) => {
   const { toast } = useToast();
   const [orgDialogOpen, setOrgDialogOpen] = React.useState(false);
@@ -228,7 +234,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   // On orgs or chats load, select first org or chat if nothing selected
   useEffect(() => {
-    if (view === "feed") return;
+    if (view === "feed" || view === "your-feed") return;
     if (!orgs || orgs.length === 0) {
       if (selectedSidebarItem) setSelectedSidebarItem(null);
       return;
@@ -248,12 +254,15 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     setSelectedSidebarItem({ type: "org", id: orgs[0].id });
   }, [orgs, selectedSidebarItem, view]);
 
-  // Clear selection if view is 'feed'
+  // Clear selection if view is 'feed' or 'your-feed'
   useEffect(() => {
-    if (view === "feed" && selectedSidebarItem !== null) {
-      // Don't clear organization selection on page refresh
-      // Only clear if it's not an organization view
-      if (selectedSidebarItem.type !== "org") {
+    if ((view === "feed" || view === "your-feed") && selectedSidebarItem !== null) {
+      // For "your-feed", always clear selection to show normal sidebar
+      if (view === "your-feed") {
+        setSelectedSidebarItem(null);
+      }
+      // For "feed" (org feed), don't clear organization selection on page refresh
+      else if (view === "feed" && selectedSidebarItem.type !== "org") {
         setSelectedSidebarItem(null);
       }
     }
@@ -300,11 +309,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   ];
 
   return (
-    <motion.div
-      initial={{ x: -320 }}
-      animate={{ x: 0 }}
-      exit={{ x: -320 }}
-      transition={{ duration: 0.2 }}
+    <div
       className="z-50 w-4/5 max-w-xs bg-chat-sidebar shadow-sidebar border-r border-border flex flex-col fixed inset-y-0 left-0 lg:static lg:w-80 lg:min-w-80 lg:max-w-80">
       {/* Header */}
       <div className="p-4 border-b border-border">
@@ -388,8 +393,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           userId={user.uid}
           isMobile={isMobile}
           setSidebarOpen={setSidebarOpen}
-          onFeedClick={onFeedClick}
-          onBack={() => setSelectedSidebarItem(null)}
+          onFeedClick={() => {
+            const org = orgs.find((o) => o.id === selectedSidebarItem.id);
+            const details = (orgDetails[selectedSidebarItem.id] as any) || {};
+            if (org && onOrgFeedClick) {
+              onOrgFeedClick({ ...org, userRole: details.role });
+            }
+          }}
+          onBack={() => {
+            setSelectedSidebarItem(null);
+          }}
           onSettingsClick={() => {
             const org = orgs.find((o) => o.id === selectedSidebarItem.id);
             const details = (orgDetails[selectedSidebarItem.id] as any) || {};
@@ -402,6 +415,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             }
           }}
           onOrganizationUpdate={handleOrganizationUpdate}
+          onGroupSelect={onGroupSelect}
+          selectedGroupId={selectedGroupId}
         />
       )}
       {/* Organization Section: Only show if no org is selected */}
@@ -455,8 +470,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 let roleIcon = null;
                 let roleLabel = "";
                 if (details.role === "admin") {
-                  roleIcon = <Shield className="w-4 h-4 text-primary mr-1" />;
+                  roleIcon = <Shield className="w-4 h-4 text-yellow-600 mr-1" />;
                   roleLabel = "Admin";
+                } else if (details.role === "moderator") {
+                  roleIcon = <Shield className="w-4 h-4 text-blue-600 mr-1" />;
+                  roleLabel = "Moderator";
                 } else if (details.role === "member") {
                   roleIcon = (
                     <UserIcon className="w-4 h-4 text-muted-foreground mr-1" />
@@ -561,7 +579,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <Button
             className="w-full font-semibold text-base"
             variant="default"
-            onClick={onFeedClick}>
+            onClick={() => {
+              setSelectedSidebarItem(null); // Clear organization selection
+              onFeedClick();
+            }}>
             Feed
           </Button>
         </div>
@@ -617,6 +638,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </div>,
           document.body
         )}
-    </motion.div>
+    </div>
   );
 };
