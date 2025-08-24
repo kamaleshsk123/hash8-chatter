@@ -50,7 +50,7 @@ export interface Message {
   senderAvatar?: string;
   text: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'system';
   reactions?: Reaction[];
   isEdited?: boolean;
   readBy?: ReadReceipt[];

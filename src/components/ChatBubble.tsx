@@ -27,6 +27,16 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   const { user } = useAuth();
   const isOwnMessage = message.senderId === user?.uid;
 
+  if (message.type === "system") {
+    return (
+      <div className="flex justify-center w-full my-2">
+        <div className="bg-muted text-muted-foreground text-xs px-3 py-1 rounded-full italic max-w-[80%] text-center">
+          {message.text}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Plus,
   Search,
@@ -262,6 +262,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                     }
                   }}>
                   <Avatar className="w-7 h-7 mt-0.5">
+                    <AvatarImage src={group.avatar} alt={group.name} />
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {group.name?.charAt(0).toUpperCase() || "G"}
                     </AvatarFallback>

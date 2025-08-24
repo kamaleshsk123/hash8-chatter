@@ -311,6 +311,118 @@ export const createGroup = async (groupData: {
   return groupId;
 };
 
+// Invite users to a group
+export const inviteToGroup = async (invitationData: {
+  organizationId: string;
+  groupId: string;
+  members: string[]; // Array of user IDs
+  invitedBy: string;
+}) => {
+  const groupRef = doc(db, `organizations/${invitationData.organizationId}/groups`, invitationData.groupId);
+  
+  // Get the current group members
+  const groupDoc = await getDoc(groupRef);
+  if (!groupDoc.exists()) {
+    throw new Error("Group not found");
+  }
+  const groupData = groupDoc.data();
+  const existingMembers = groupData.members || [];
+
+  // Filter out members who are already in the group
+  const newMembers = invitationData.members.filter(
+    (memberId) => !existingMembers.includes(memberId)
+  );
+
+  if (newMembers.length === 0) {
+    return; // No new members to add
+  }
+
+  // Add the new members to the group
+  await updateDoc(groupRef, {
+    members: [...existingMembers, ...newMembers],
+  });
+
+  // TODO: Send a notification to the invited users
+};
+
+// Leave a group
+export const leaveGroup = async (leaveData: {
+  organizationId: string;
+  groupId: string;
+  userId: string;
+}) => {
+  const groupRef = doc(db, `organizations/${leaveData.organizationId}/groups`, leaveData.groupId);
+  
+  // Get the current group members
+  const groupDoc = await getDoc(groupRef);
+  if (!groupDoc.exists()) {
+    throw new Error("Group not found");
+  }
+  const groupData = groupDoc.data();
+  const existingMembers = groupData.members || [];
+
+  // Filter out the user who is leaving
+  const newMembers = existingMembers.filter(
+    (memberId: string) => memberId !== leaveData.userId
+  );
+
+  // If the user is not in the group, do nothing
+  if (newMembers.length === existingMembers.length) {
+    return;
+  }
+
+  // If the user is the last member, delete the group
+  if (newMembers.length === 0) {
+    await deleteDoc(groupRef);
+    return;
+  }
+
+  // Update the group with the new member list
+  await updateDoc(groupRef, {
+    members: newMembers,
+  });
+};
+
+// Update a group
+export const updateGroup = async (updateData: {
+  organizationId: string;
+  groupId: string;
+  updates: any;
+}) => {
+  const groupRef = doc(db, `organizations/${updateData.organizationId}/groups`, updateData.groupId);
+  await updateDoc(groupRef, updateData.updates);
+};
+
+// Send a system message to a group
+export const sendSystemMessage = async (systemMessageData: {
+  organizationId: string;
+  groupId: string;
+  text: string;
+}) => {
+  const messageId = crypto.randomUUID();
+  const messageRef = doc(db, `organizations/${systemMessageData.organizationId}/groups/${systemMessageData.groupId}/messages`, messageId);
+  
+  const messageDoc = {
+    id: messageId,
+    groupId: systemMessageData.groupId,
+    text: systemMessageData.text,
+    senderId: "system",
+    senderName: "System",
+    type: "system",
+    timestamp: serverTimestamp(),
+  };
+  
+  await setDoc(messageRef, messageDoc);
+  
+  // Update group's lastActivity
+  const groupRef = doc(db, `organizations/${systemMessageData.organizationId}/groups`, systemMessageData.groupId);
+  await updateDoc(groupRef, {
+    lastActivity: serverTimestamp()
+  });
+  
+  return messageId;
+};
+
 // === GROUP MESSAGING FUNCTIONS ===
 
 // Get messages for a specific group
