@@ -6,6 +6,13 @@ export interface User {
   isOnline?: boolean;
   lastSeen?: Date;
   role?: UserRole;
+  phone?: string;
+  jobTitle?: string;
+  department?: string;
+  bio?: string;
+  location?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export type UserRole = 'admin' | 'moderator' | 'member';

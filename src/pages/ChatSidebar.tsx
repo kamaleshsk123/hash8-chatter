@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTheme } from "@/context/ThemeContext";
+import { UserProfile } from "./UserProfile";
 import {
   Plus,
   Search,
@@ -54,8 +56,6 @@ interface ChatSidebarProps {
   isMobile: boolean;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
-  isDarkMode: boolean;
-  setIsDarkMode: (v: boolean) => void;
   handleSignOut: () => void;
   mockChats: any[];
   selectedChat: any;
@@ -75,8 +75,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isMobile,
   sidebarOpen,
   setSidebarOpen,
-  isDarkMode,
-  setIsDarkMode,
   handleSignOut,
   mockChats,
   selectedChat,
@@ -91,8 +89,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   selectedGroupId,
 }) => {
   const { toast } = useToast();
+  const { actualTheme, setTheme } = useTheme();
   const [orgDialogOpen, setOrgDialogOpen] = React.useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
   const isMobileView =
     typeof window !== "undefined" ? window.innerWidth < 640 : false;
 
@@ -321,15 +321,20 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsDarkMode(!isDarkMode)}
+              onClick={() => setTheme(actualTheme === 'dark' ? 'light' : 'dark')}
               className="p-2">
-              {isDarkMode ? (
+              {actualTheme === 'dark' ? (
                 <Sun className="w-4 h-4" />
               ) : (
                 <Moon className="w-4 h-4" />
               )}
             </Button>
-            <Button variant="ghost" size="icon" className="p-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="p-2"
+              onClick={() => setShowUserProfile(true)}
+            >
               <Settings className="w-4 h-4" />
             </Button>
             {/* Hide sidebar close button on desktop */}
@@ -416,6 +421,17 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           }}
           onOrganizationUpdate={handleOrganizationUpdate}
           onGroupSelect={onGroupSelect}
+          onDirectMessageStart={(conversationId, otherUser) => {
+            // Navigate to direct message
+            if (onGroupSelect) {
+              onGroupSelect({
+                id: conversationId,
+                name: `Direct Message with ${otherUser.name}`,
+                type: 'direct_message',
+                otherUser: otherUser
+              }, null);
+            }
+          }}
           selectedGroupId={selectedGroupId}
         />
       )}
@@ -638,6 +654,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </div>,
           document.body
         )}
+      
+      {/* User Profile Modal */}
+      {showUserProfile && (
+        <UserProfile onClose={() => setShowUserProfile(false)} />
+      )}
     </div>
   );
 };

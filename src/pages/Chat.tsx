@@ -61,6 +61,7 @@ import { ChatSidebar } from "./ChatSidebar";
 import { FeedDemo } from "./FeedDemo";
 import { YourFeed } from "./YourFeed";
 import { OrganizationSettingsView } from "./OrganizationSettingsView";
+import { DirectMessage } from "./DirectMessage";
 import { InviteToGroupDialog } from "./InviteToGroupDialog";
 import { GroupInfoSheet } from "./GroupInfoSheet";
 
@@ -220,9 +221,8 @@ const Chat = () => {
   // UI state
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<"chat" | "feed" | "your-feed">("your-feed");
+  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">("chat");
   const [showOrganizationSettings, setShowOrganizationSettings] =
     useState(false);
   const [selectedOrgForSettings, setSelectedOrgForSettings] =
@@ -535,10 +535,21 @@ const Chat = () => {
       setShowOrganizationSettings(false);
       setSelectedOrgForSettings(null);
     }
-    setSelectedGroup(group);
-    setSelectedOrg(org);
-    setSelectedChat(null);
-    setView("chat");
+    
+    // Handle direct message selection
+    if (group?.type === 'direct_message') {
+      setSelectedGroup(group);
+      setSelectedOrg(null);
+      setSelectedChat(null);
+      setView("direct_message");
+    } else {
+      // Handle regular group selection
+      setSelectedGroup(group);
+      setSelectedOrg(org);
+      setSelectedChat(null);
+      setView("chat");
+    }
+    
     if (isMobile) setSidebarOpen(false);
   };
 
@@ -579,8 +590,6 @@ const Chat = () => {
               isMobile={isMobile}
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
-              isDarkMode={isDarkMode}
-              setIsDarkMode={setIsDarkMode}
               handleSignOut={handleSignOut}
               mockChats={mockChats}
               selectedChat={selectedChat}
@@ -651,6 +660,19 @@ const Chat = () => {
               setSidebarOpen(true);
             } else {
               setView("chat");
+            }
+          }}
+        />
+      ) : view === "direct_message" && selectedGroup?.type === "direct_message" ? (
+        <DirectMessage
+          conversationId={selectedGroup.id}
+          otherUser={selectedGroup.otherUser}
+          onBack={() => {
+            if (isMobile) {
+              setSidebarOpen(true);
+            } else {
+              setView("chat");
+              setSelectedGroup(null);
             }
           }}
         />

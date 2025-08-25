@@ -20,6 +20,7 @@ interface AuthContextType {
     password: string,
     name?: string
   ) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,8 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [firebaseUser, loading, error] = useAuthState(auth);
   const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    const fetchAndSetUser = async () => {
+  const fetchAndSetUser = async () => {
     if (firebaseUser) {
         // Upsert user profile in Firestore
         await upsertUserProfile({
@@ -54,12 +54,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         let name = firebaseUser.displayName || "Unknown User";
         let avatar = firebaseUser.photoURL || undefined;
         let role: User['role'] = 'member'; // Default role
+        
+        // Get all profile data from Firestore
+        let phone, jobTitle, department, bio, location, createdAt, updatedAt;
+        
         if (userDoc.exists()) {
           const data = userDoc.data();
           if (data.displayName) name = data.displayName;
+          if (data.name) name = data.name; // Prefer 'name' over 'displayName'
           if (data.avatar) avatar = data.avatar;
-          if (data.role) role = data.role; // Assign role from Firestore
+          if (data.role) role = data.role;
+          phone = data.phone;
+          jobTitle = data.jobTitle;
+          department = data.department;
+          bio = data.bio;
+          location = data.location;
+          createdAt = data.createdAt?.toDate();
+          updatedAt = data.updatedAt?.toDate();
         }
+        
         // If avatar is missing, use first letter of name
         if (!avatar && name) {
           avatar = undefined; // Let UI fallback to first letter
@@ -72,6 +85,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isOnline: true,
           lastSeen: new Date(),
         role,
+        phone,
+        jobTitle,
+        department,
+        bio,
+        location,
+        createdAt,
+        updatedAt,
       };
       setUser(userData);
       updateUserStatus(firebaseUser.uid, true);
@@ -81,9 +101,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       setUser(null);
     }
-    };
+  };
+
+  useEffect(() => {
     fetchAndSetUser();
   }, [firebaseUser]);
+
+  const refreshUser = async () => {
+    await fetchAndSetUser();
+  };
 
   const signIn = async () => {
     const { signInWithGoogle } = await import("@/services/firebase");
@@ -141,6 +167,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     signInWithEmail,
     registerWithEmail,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
