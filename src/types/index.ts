@@ -6,6 +6,13 @@ export interface User {
   isOnline?: boolean;
   lastSeen?: Date;
   role?: UserRole;
+  phone?: string;
+  jobTitle?: string;
+  department?: string;
+  bio?: string;
+  location?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export type UserRole = 'admin' | 'moderator' | 'member';
@@ -50,7 +57,7 @@ export interface Message {
   senderAvatar?: string;
   text: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'system';
   reactions?: Reaction[];
   isEdited?: boolean;
   readBy?: ReadReceipt[];
