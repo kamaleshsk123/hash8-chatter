@@ -44,7 +44,7 @@ import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
 import { Group, Message, TypingStatus } from "@/types";
 import React, { useEffect, useState, useRef } from "react";
-import { QrReader } from "react-qr-reader";
+import QrScanner from 'react-qr-scanner';
 import { useToast } from "@/hooks/use-toast";
 import { CreateOrganizationDialog } from "./CreateOrganizationDialog";
 import { JoinOrganizationDialog } from "./JoinOrganizationDialog";
