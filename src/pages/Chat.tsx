@@ -18,6 +18,7 @@ import {
   markMessageAsRead,
   getUsersByIds,
   subscribeToUserStatus,
+  leaveGroup,
 } from "@/services/firebase";
 import {
   Send,
@@ -44,12 +45,26 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ChatSidebar } from "./ChatSidebar";
 import { FeedDemo } from "./FeedDemo";
 import { YourFeed } from "./YourFeed";
 import { OrganizationSettingsView } from "./OrganizationSettingsView";
+import { DirectMessage } from "./DirectMessage";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { InviteToGroupDialog } from "./InviteToGroupDialog";
+import { GroupInfoSheet } from "./GroupInfoSheet";
 
 // Mock data for development
 const mockGroups: Group[] = [
@@ -207,14 +222,17 @@ const Chat = () => {
   // UI state
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<"chat" | "feed" | "your-feed">("your-feed");
+  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">("chat");
   const [showOrganizationSettings, setShowOrganizationSettings] =
     useState(false);
   const [selectedOrgForSettings, setSelectedOrgForSettings] =
     useState<any>(null);
   const refreshOrganizationsRef = useRef<() => void>(() => {});
+
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isLeaveGroupDialogOpen, setIsLeaveGroupDialogOpen] = useState(false);
+  const [isGroupInfoSheetOpen, setIsGroupInfoSheetOpen] = useState(false);
 
   // Real-time subscriptions
   const messageUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -518,10 +536,21 @@ const Chat = () => {
       setShowOrganizationSettings(false);
       setSelectedOrgForSettings(null);
     }
-    setSelectedGroup(group);
-    setSelectedOrg(org);
-    setSelectedChat(null);
-    setView("chat");
+    
+    // Handle direct message selection
+    if (group?.type === 'direct_message') {
+      setSelectedGroup(group);
+      setSelectedOrg(null);
+      setSelectedChat(null);
+      setView("direct_message");
+    } else {
+      // Handle regular group selection
+      setSelectedGroup(group);
+      setSelectedOrg(org);
+      setSelectedChat(null);
+      setView("chat");
+    }
+    
     if (isMobile) setSidebarOpen(false);
   };
 
@@ -562,8 +591,6 @@ const Chat = () => {
               isMobile={isMobile}
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
-              isDarkMode={isDarkMode}
-              setIsDarkMode={setIsDarkMode}
               handleSignOut={handleSignOut}
               mockChats={mockChats}
               selectedChat={selectedChat}
@@ -637,6 +664,21 @@ const Chat = () => {
             }
           }}
         />
+      ) : view === "direct_message" && selectedGroup?.type === "direct_message" ? (
+        <ErrorBoundary>
+          <DirectMessage
+            conversationId={selectedGroup.id}
+            otherUser={selectedGroup.otherUser}
+            onBack={() => {
+              if (isMobile) {
+                setSidebarOpen(true);
+              } else {
+                setView("chat");
+                setSelectedGroup(null);
+              }
+            }}
+          />
+        </ErrorBoundary>
       ) : (
         <div className="flex-1 flex flex-col min-h-0 ">
           {/* Chat Header */}
@@ -777,29 +819,76 @@ const Chat = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          toast({ title: "Functionality not yet implemented." })
-                        }
-                      >
+                      <DropdownMenuItem onSelect={() => setIsInviteDialogOpen(true)}>
                         Add Member
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          toast({ title: "Functionality not yet implemented." })
-                        }
-                      >
+                      <DropdownMenuItem onSelect={() => setIsLeaveGroupDialogOpen(true)}>
                         Leave Group
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          toast({ title: "Functionality not yet implemented." })
-                        }
-                      >
+                      <DropdownMenuItem onSelect={() => setIsGroupInfoSheetOpen(true)}>
                         View Group Info
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <InviteToGroupDialog
+                    open={isInviteDialogOpen}
+                    onOpenChange={setIsInviteDialogOpen}
+                    org={selectedOrg}
+                    group={selectedGroup}
+                    userId={user.uid}
+                  />
+                  <AlertDialog
+                    open={isLeaveGroupDialogOpen}
+                    onOpenChange={setIsLeaveGroupDialogOpen}
+                  >
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Leave Group</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to leave this group? This action
+                          cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={async () => {
+                            if (selectedGroup && selectedOrg && user) {
+                              try {
+                                await leaveGroup({
+                                  organizationId: selectedOrg.id,
+                                  groupId: selectedGroup.id,
+                                  userId: user.uid,
+                                });
+                                toast({
+                                  title: "Success",
+                                  description: "You have left the group.",
+                                });
+                                setSelectedGroup(null);
+                              } catch (error) {
+                                console.error("Error leaving group:", error);
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to leave group.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          Leave
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <GroupInfoSheet
+                    open={isGroupInfoSheetOpen}
+                    onOpenChange={setIsGroupInfoSheetOpen}
+                    group={selectedGroup}
+                    org={selectedOrg}
+                    members={groupMembers}
+                    onSuccess={(updatedGroup) => setSelectedGroup(updatedGroup)}
+                  />
                 </>
               )}
             </div>

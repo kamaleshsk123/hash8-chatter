@@ -2,20 +2,35 @@ import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Group } from '@/types';
 import { cn } from '@/lib/utils';
+import { MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { InviteToGroupDialog } from '@/pages/InviteToGroupDialog';
+import { useState } from 'react';
 
 interface GroupListItemProps {
   group: Group;
   isSelected?: boolean;
   onClick: () => void;
+  org: any;
+  userId: string;
 }
 
 export const GroupListItem: React.FC<GroupListItemProps> = ({ 
   group, 
   isSelected = false, 
-  onClick 
+  onClick, 
+  org, 
+  userId 
 }) => {
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   return (
     <motion.div
       whileHover={{ backgroundColor: 'hsl(var(--secondary))' }}
@@ -50,6 +65,43 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({
               {formatDistanceToNow(group.lastMessage.timestamp, { addSuffix: false })}
             </span>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="ml-2">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => setIsInviteDialogOpen(true)}>Invite</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground truncate">
+            {group.lastMessage 
+              ? `${group.lastMessage.senderName}: ${group.lastMessage.text}`
+              : 'No messages yet'
+            }
+          </p>
+          
+          {group.unreadCount && group.unreadCount > 0 && (
+            <Badge 
+              variant="default" 
+              className="ml-2 bg-primary text-primary-foreground text-xs h-5 min-w-5 px-1.5"
+            >
+              {group.unreadCount > 99 ? '99+' : group.unreadCount}
+            </Badge>
+          )}
+        </div>
+      </div>
+      <InviteToGroupDialog
+        open={isInviteDialogOpen}
+        onOpenChange={setIsInviteDialogOpen}
+        org={org}
+        group={group}
+        userId={userId}
+      />
         </div>
         
         <div className="flex items-center justify-between">

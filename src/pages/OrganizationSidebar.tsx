@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Plus,
   Search,
@@ -10,14 +10,17 @@ import {
   User as UserIcon,
   Globe,
 } from "lucide-react";
-import {
-  getOrganizationGroups,
-  getOrganizationMembers,
-  getUsersByIds,
+import { useToast } from "@/hooks/use-toast";
+import { formatTimeAgo } from "@/lib/time";
+import { 
+  getOrganizationGroups, 
+  getOrganizationMembers, 
+  getUsersByIds, 
   subscribeToUserStatus,
+  joinOrganization,
+  createOrGetDirectMessage
 } from "@/services/firebase";
 import { CreateGroupDialog } from "./CreateGroupDialog";
-import { formatTimeAgo } from "@/lib/time";
 
 // Types for props
 interface OrganizationSidebarProps {
@@ -36,7 +39,9 @@ interface OrganizationSidebarProps {
   onSettingsClick?: () => void; // Callback to open organization settings
   onOrganizationUpdate?: (updatedOrg: any) => void; // Callback for organization updates
   onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
+  onDirectMessageStart?: (conversationId: string, otherUser: any) => void; // Callback when starting a direct message
   selectedGroupId?: string; // Currently selected group ID
+  selectedConversationId?: string; // Currently selected conversation ID for direct messages
   // Add more props as needed for real group/member data
 }
 
@@ -52,7 +57,9 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   onSettingsClick,
   onOrganizationUpdate,
   onGroupSelect,
+  onDirectMessageStart,
   selectedGroupId,
+  selectedConversationId,
 }) => {
   // Real group and member data
   const [groups, setGroups] = useState<any[]>([]);
@@ -67,6 +74,31 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
     admin: 1,
     moderator: 2,
     member: 3,
+  };
+
+  const { toast } = useToast();
+
+  // Handle member click to start direct message
+  const handleMemberClick = async (member: any) => {
+    try {
+      const profile = userProfiles[member.userId] || {};
+      const conversation = await createOrGetDirectMessage(userId, member.userId);
+      
+      if (onDirectMessageStart) {
+        onDirectMessageStart(conversation.id, {
+          userId: member.userId,
+          name: profile.displayName || member.userId,
+          avatar: profile.avatar || '',
+          role: member.role
+        });
+      }
+    } catch (error) {
+      console.error('Error starting direct message:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to start direct message" 
+      });
+    }
   };
   
   // Dialog state
@@ -148,7 +180,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
             </div>
             <Button
               onClick={() => {
-                onBack();
+                if (onBack) onBack();
                 // Close sidebar on mobile when going back
                 if (isMobile && setSidebarOpen) setSidebarOpen(false);
               }}
@@ -262,6 +294,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                     }
                   }}>
                   <Avatar className="w-7 h-7 mt-0.5">
+                    <AvatarImage src={group.avatar} alt={group.name} />
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {group.name?.charAt(0).toUpperCase() || "G"}
                     </AvatarFallback>
@@ -315,11 +348,19 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                 const avatarUrl = profile.avatar || "";
                 const status = memberStatuses[member.userId];
                 const isOnline = status?.isOnline && new Date().getTime() - status.lastSeen.toDate().getTime() < 300000; // 5 minutes
+                
+                // Check if this member's conversation is currently selected
+                const isSelected = selectedConversationId && selectedConversationId.includes(member.userId);
 
                 return (
                   <div
                     key={member.userId || idx}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                    onClick={() => handleMemberClick(member)}
+                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                      isSelected 
+                        ? "bg-primary/10 border-l-4 border-primary rounded-r-sm rounded-l-none" 
+                        : "hover:bg-muted"
+                    }`}>
                     <div className="relative">
                       <Avatar className="w-8 h-8">
                         {avatarUrl ? (
@@ -358,7 +399,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
         <Button
           size="icon"
           className="rounded-full bg-black text-white hover:bg-neutral-800"
-          onClick={onBack}
+          onClick={() => onBack && onBack()}
           aria-label="Global">
           <Globe className="w-5 h-5" />
         </Button>
