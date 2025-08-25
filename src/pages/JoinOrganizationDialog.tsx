@@ -9,7 +9,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { QrReader } from "react-qr-reader";
+import QrScanner from 'react-qr-scanner';
 import { joinOrganization } from "@/services/firebase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -154,21 +154,22 @@ export const JoinOrganizationDialog: React.FC<JoinOrganizationDialogProps> = ({
                       {scanning && (
                         <div className="mt-3 border rounded bg-muted p-2 flex flex-col gap-3 items-center">
                           <div style={{ width: "100%" }}>
-                            <QrReader
-                              constraints={{ facingMode: "environment" }}
-                              onResult={(result: any, error: any) => {
-                                if (!!result) {
-                                  setJoinUID(result.getText());
+                            <QrScanner
+                              delay={300} // Add a delay for scanning
+                              constraints={{ video: { facingMode: "environment" } }} // Corrected constraints for react-qr-scanner
+                              onScan={(result: any) => { // Use onScan
+                                if (result) {
+                                  setJoinUID(result.text); // Access text property
                                   setScanning(false);
                                   setScanError("");
                                 }
-                                if (
-                                  !!error &&
-                                  error.name !== "NotFoundException"
-                                ) {
+                              }}
+                              onError={(error: any) => { // Use onError
+                                if (error && error.name !== "NotFoundException") {
                                   setScanError("Scan error: " + error.message);
                                 }
                               }}
+                              style={{ width: "100%" }} // Add style prop
                             />
                           </div>
                           {scanError && (
