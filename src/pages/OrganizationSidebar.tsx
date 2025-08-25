@@ -41,6 +41,7 @@ interface OrganizationSidebarProps {
   onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
   onDirectMessageStart?: (conversationId: string, otherUser: any) => void; // Callback when starting a direct message
   selectedGroupId?: string; // Currently selected group ID
+  selectedConversationId?: string; // Currently selected conversation ID for direct messages
   // Add more props as needed for real group/member data
 }
 
@@ -58,6 +59,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   onGroupSelect,
   onDirectMessageStart,
   selectedGroupId,
+  selectedConversationId,
 }) => {
   // Real group and member data
   const [groups, setGroups] = useState<any[]>([]);
@@ -346,12 +348,19 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                 const avatarUrl = profile.avatar || "";
                 const status = memberStatuses[member.userId];
                 const isOnline = status?.isOnline && new Date().getTime() - status.lastSeen.toDate().getTime() < 300000; // 5 minutes
+                
+                // Check if this member's conversation is currently selected
+                const isSelected = selectedConversationId && selectedConversationId.includes(member.userId);
 
                 return (
                   <div
                     key={member.userId || idx}
                     onClick={() => handleMemberClick(member)}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                      isSelected 
+                        ? "bg-primary/10 border-l-4 border-primary rounded-r-sm rounded-l-none" 
+                        : "hover:bg-muted"
+                    }`}>
                     <div className="relative">
                       <Avatar className="w-8 h-8">
                         {avatarUrl ? (

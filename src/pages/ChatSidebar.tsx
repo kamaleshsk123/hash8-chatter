@@ -433,6 +433,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             }
           }}
           selectedGroupId={selectedGroupId}
+          selectedConversationId={selectedGroupId}
         />
       )}
       {/* Organization Section: Only show if no org is selected */}

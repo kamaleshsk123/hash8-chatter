@@ -62,6 +62,7 @@ import { FeedDemo } from "./FeedDemo";
 import { YourFeed } from "./YourFeed";
 import { OrganizationSettingsView } from "./OrganizationSettingsView";
 import { DirectMessage } from "./DirectMessage";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InviteToGroupDialog } from "./InviteToGroupDialog";
 import { GroupInfoSheet } from "./GroupInfoSheet";
 
@@ -664,18 +665,20 @@ const Chat = () => {
           }}
         />
       ) : view === "direct_message" && selectedGroup?.type === "direct_message" ? (
-        <DirectMessage
-          conversationId={selectedGroup.id}
-          otherUser={selectedGroup.otherUser}
-          onBack={() => {
-            if (isMobile) {
-              setSidebarOpen(true);
-            } else {
-              setView("chat");
-              setSelectedGroup(null);
-            }
-          }}
-        />
+        <ErrorBoundary>
+          <DirectMessage
+            conversationId={selectedGroup.id}
+            otherUser={selectedGroup.otherUser}
+            onBack={() => {
+              if (isMobile) {
+                setSidebarOpen(true);
+              } else {
+                setView("chat");
+                setSelectedGroup(null);
+              }
+            }}
+          />
+        </ErrorBoundary>
       ) : (
         <div className="flex-1 flex flex-col min-h-0 ">
           {/* Chat Header */}
