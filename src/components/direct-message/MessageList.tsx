@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Edit2, Trash2, Reply, Paperclip, Check, CheckCheck } from "lucide-react";
+import { MoreVertical, Edit2, Trash2, Reply, Paperclip, Check, CheckCheck, Clock } from "lucide-react";
 import { MessageReactions } from "@/components/MessageReactions";
 import { ReplyToMessage } from "@/components/ReplyToMessage";
 import { EmojiPickerComponent } from "@/components/EmojiPicker";
@@ -40,6 +40,7 @@ interface Message {
     senderName: string;
   };
   deleted?: boolean;
+  hasPendingWrites?: boolean; // Added for offline support
 }
 
 interface MessageListProps {
@@ -221,7 +222,9 @@ export const MessageList: React.FC<MessageListProps> = ({
                     </span>
                     {isOwnMessage && (
                       <div className="flex items-center">
-                        {message.readBy.some(receipt => receipt.userId === otherUser.userId) ? (
+                        {message.hasPendingWrites ? (
+                          <Clock className="h-3 w-3 text-muted-foreground" title="Pending" />
+                        ) : message.readBy.some(receipt => receipt.userId === otherUser.userId) ? (
                           <CheckCheck className="h-3 w-3 text-blue-500" title="Seen" />
                         ) : (
                           <Check className="h-3 w-3 text-muted-foreground" title="Sent" />

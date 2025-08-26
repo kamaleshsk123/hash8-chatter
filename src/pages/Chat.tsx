@@ -677,6 +677,7 @@ const Chat = () => {
                 setSelectedGroup(null);
               }
             }}
+            onToggleSidebar={() => setSidebarOpen(true)} // Added prop
           />
         </ErrorBoundary>
       ) : (
