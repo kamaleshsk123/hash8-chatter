@@ -84,6 +84,13 @@ export const MessageList: React.FC<MessageListProps> = ({
           <div className="text-xs text-muted-foreground">
             Start a conversation with {otherUser.name}
           </div>
+          {/* Show offline indicator if applicable */}
+          {typeof window !== 'undefined' && !navigator.onLine && (
+            <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 flex items-center gap-1">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              Messages will sync when online
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -223,11 +230,11 @@ export const MessageList: React.FC<MessageListProps> = ({
                     {isOwnMessage && (
                       <div className="flex items-center">
                         {message.hasPendingWrites ? (
-                          <Clock className="h-3 w-3 text-muted-foreground" title="Pending" />
+                          <Clock className="h-3 w-3 text-muted-foreground" />
                         ) : message.readBy.some(receipt => receipt.userId === otherUser.userId) ? (
-                          <CheckCheck className="h-3 w-3 text-blue-500" title="Seen" />
+                          <CheckCheck className="h-3 w-3 text-blue-500" />
                         ) : (
-                          <Check className="h-3 w-3 text-muted-foreground" title="Sent" />
+                          <Check className="h-3 w-3 text-muted-foreground" />
                         )}
                       </div>
                     )}

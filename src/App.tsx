@@ -9,32 +9,63 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
-import { useOnlineStatus } from "./hooks/useOnlineStatus"; // Import the new hook
-import { useToast } from "@/components/ui/use-toast"; // Import useToast
-import { useEffect } from "react"; // Import useEffect
+import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import { useToast } from "@/components/ui/use-toast";
+import { syncService } from "@/services/syncService";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-const App = () => { // Changed to a block body for useEffect
-  const isOnline = useOnlineStatus();
+const App = () => {
+  const { isOnline, wasOffline, resetWasOffline } = useNetworkStatus();
   const { toast } = useToast();
 
-  // Effect to show toast notifications for online/offline status
+  // Effect to handle online/offline status and auto-sync
   useEffect(() => {
-    if (isOnline) {
+    if (isOnline && wasOffline) {
+      // Coming back online after being offline
+      const pendingCount = syncService.getPendingMessageCount();
+      
+      if (pendingCount > 0) {
+        toast({
+          title: "Back Online!",
+          description: `Syncing ${pendingCount} pending messages...`,
+        });
+        
+        // Auto-sync pending messages
+        syncService.autoSync().then((result) => {
+          if (result.success > 0 || result.failed > 0) {
+            toast({
+              title: "Sync Complete",
+              description: `${result.success} messages sent successfully${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
+            });
+          }
+        }).catch((error) => {
+          console.error('Auto-sync failed:', error);
+          toast({
+            title: "Sync Failed",
+            description: "Some messages couldn't be synced. Please try again.",
+            variant: "destructive",
+          });
+        });
+      } else {
+        toast({
+          title: "Back Online!",
+          description: "You're connected to the server again.",
+        });
+      }
+      
+      // Reset the wasOffline flag
+      resetWasOffline();
+    } else if (!isOnline && !wasOffline) {
+      // Just went offline
       toast({
-        title: "You are back online!",
-        description: "Messages will now sync with the server.",
-        variant: "success", // Assuming a 'success' variant exists or can be added
-      });
-    } else {
-      toast({
-        title: "You are offline.",
-        description: "Messages will be sent when you reconnect.",
-        variant: "destructive", // Assuming a 'destructive' variant exists or can be added
+        title: "You're Offline",
+        description: "Messages will be saved and sent when you reconnect.",
+        variant: "destructive",
       });
     }
-  }, [isOnline, toast]);
+  }, [isOnline, wasOffline, resetWasOffline, toast]);
 
   return (
     <QueryClientProvider client={queryClient}>

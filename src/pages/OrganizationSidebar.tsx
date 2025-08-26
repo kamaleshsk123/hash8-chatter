@@ -11,14 +11,17 @@ import {
   Globe,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { formatTimeAgo } from "@/lib/time";
+import { offlineCache } from "@/services/offlineCache";
 import { 
   getOrganizationGroups, 
   getOrganizationMembers, 
   getUsersByIds, 
   subscribeToUserStatus,
   joinOrganization,
-  createOrGetDirectMessage
+  createOrGetDirectMessage,
+  createOrGetDirectMessageOffline
 } from "@/services/firebase";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 
@@ -36,6 +39,7 @@ interface OrganizationSidebarProps {
   onCreateGroup?: () => void;
   onFeedClick?: () => void;
   onBack?: () => void; // Callback to go back to main sidebar
+  onYourFeedClick?: () => void; // Callback to navigate to Your Feed page
   onSettingsClick?: () => void; // Callback to open organization settings
   onOrganizationUpdate?: (updatedOrg: any) => void; // Callback for organization updates
   onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
@@ -54,6 +58,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   onCreateGroup,
   onFeedClick,
   onBack,
+  onYourFeedClick,
   onSettingsClick,
   onOrganizationUpdate,
   onGroupSelect,
@@ -77,27 +82,93 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   };
 
   const { toast } = useToast();
+  const { isOnline } = useNetworkStatus();
 
   // Handle member click to start direct message
   const handleMemberClick = async (member: any) => {
     try {
       const profile = userProfiles[member.userId] || {};
-      const conversation = await createOrGetDirectMessage(userId, member.userId);
+      const otherUserData = {
+        userId: member.userId,
+        name: profile.displayName || member.userId,
+        avatar: profile.avatar || '',
+        role: member.role
+      };
+      
+      // Use offline-friendly conversation creation
+      const conversation = await createOrGetDirectMessageOffline(userId, member.userId, isOnline);
+      
+      // Always cache conversation metadata for offline access (online or offline)
+      offlineCache.cacheConversationMetadata(conversation.id, otherUserData);
       
       if (onDirectMessageStart) {
-        onDirectMessageStart(conversation.id, {
-          userId: member.userId,
-          name: profile.displayName || member.userId,
-          avatar: profile.avatar || '',
-          role: member.role
-        });
+        onDirectMessageStart(conversation.id, otherUserData);
+      }
+      
+      // Show appropriate feedback based on network status
+      if (!isOnline) {
+        if ((conversation as any).isOfflineGenerated) {
+          toast({
+            title: "Offline Mode",
+            description: `Starting chat with ${otherUserData.name}. Messages will sync when online.`,
+            duration: 3000,
+          });
+        } else {
+          // This case shouldn't happen with our offline-friendly function,
+          // but keeping it as a safety net
+          toast({
+            title: "Offline Mode",
+            description: `Chat opened with ${otherUserData.name}. Some features may be limited.`,
+            duration: 3000,
+          });
+        }
       }
     } catch (error) {
       console.error('Error starting direct message:', error);
-      toast({ 
-        title: "Error", 
-        description: "Failed to start direct message" 
-      });
+      
+      // Enhanced error handling with more specific fallbacks
+      if (!isOnline) {
+        // Even if the offline-friendly function fails, try to create a basic conversation
+        try {
+          const profile = userProfiles[member.userId] || {};
+          const basicOtherUserData = {
+            userId: member.userId,
+            name: profile.displayName || member.userId || `User ${member.userId.slice(-4)}`,
+            avatar: profile.avatar || '',
+            role: member.role || 'member'
+          };
+          
+          // Generate conversation ID manually as a last resort
+          const conversationId = [userId, member.userId].sort().join('_');
+          
+          // Cache the basic conversation data
+          offlineCache.cacheConversationMetadata(conversationId, basicOtherUserData);
+          
+          if (onDirectMessageStart) {
+            onDirectMessageStart(conversationId, basicOtherUserData);
+          }
+          
+          toast({
+            title: "Offline Mode",
+            description: `Chat started with ${basicOtherUserData.name}. Limited offline functionality.`,
+            duration: 4000,
+          });
+          
+        } catch (fallbackError) {
+          console.error('Fallback conversation creation also failed:', fallbackError);
+          toast({ 
+            title: "Offline Error", 
+            description: "Unable to start chat while offline. Please try again when connected.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({ 
+          title: "Error", 
+          description: "Failed to start direct message. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
   
@@ -151,8 +222,8 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
 
     getOrganizationGroups(org.id)
       .then((groups) => {
-        const userInGroups = groups.filter((group) =>
-          group.members.includes(userId)
+        const userInGroups = groups.filter((group: any) =>
+          group.members && group.members.includes(userId)
         );
         setGroups(userInGroups);
       })
@@ -399,7 +470,12 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
         <Button
           size="icon"
           className="rounded-full bg-black text-white hover:bg-neutral-800"
-          onClick={() => onBack && onBack()}
+          onClick={() => {
+            // Go back to normal sidebar
+            if (onBack) onBack();
+            // Navigate to Your Feed page
+            if (onYourFeedClick) onYourFeedClick();
+          }}
           aria-label="Global">
           <Globe className="w-5 h-5" />
         </Button>

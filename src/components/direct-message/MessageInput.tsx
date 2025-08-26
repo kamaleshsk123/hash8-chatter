@@ -20,6 +20,7 @@ interface MessageInputProps {
   handleEmojiSelect: (emoji: string) => void;
   cancelReply: () => void;
   cancelEditing: () => void;
+  isOfflineMode?: boolean; // Added to indicate offline mode
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -37,7 +38,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   handleEmojiSelect,
   cancelReply,
   cancelEditing,
+  isOfflineMode = false,
 }) => {
+  // Check online status for additional offline detection
+  const isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
+  const isActuallyOffline = isOfflineMode || !isOnline;
   return (
     <div className="p-4 border-t">
       {replyToMessage && (
@@ -92,17 +97,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             variant="ghost"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isSending}
-            className="p-2 shrink-0 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-full transition-colors"
-            title="Attach file"
+            disabled={isSending || isActuallyOffline}
+            className={`p-2 shrink-0 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-full transition-colors ${
+              isActuallyOffline ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            title={isActuallyOffline ? "File upload unavailable offline" : "Attach file"}
           >
-            <Paperclip className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+            <Paperclip className={`h-4 w-4 ${
+              isActuallyOffline ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'
+            }`} />
           </Button>
           
           <div className="shrink-0">
             <VoiceRecorder 
               onSendVoiceMessage={handleVoiceMessage}
-              disabled={isSending}
+              disabled={isSending || isActuallyOffline}
             />
           </div>
           

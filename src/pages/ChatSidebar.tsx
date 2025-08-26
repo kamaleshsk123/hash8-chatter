@@ -61,13 +61,14 @@ interface ChatSidebarProps {
   selectedChat: any;
   handleSelectChat: (chat: any) => void;
   onFeedClick: () => void;
-  onOrgFeedClick?: () => void;
-  view: "chat" | "feed" | "your-feed";
+  onOrgFeedClick?: (org: any) => void;
+  view: "chat" | "feed" | "your-feed" | "direct_message";
   onOrganizationSettingsClick: (org: any) => void;
   onOrganizationUpdate?: (updatedOrg: any) => void;
   refreshOrganizationsRef?: React.MutableRefObject<() => void>;
   onGroupSelect?: (group: any, org: any) => void;
   selectedGroupId?: string;
+  urlOrgId?: string | null;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -87,6 +88,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   refreshOrganizationsRef,
   onGroupSelect,
   selectedGroupId,
+  urlOrgId,
 }) => {
   const { toast } = useToast();
   const { actualTheme, setTheme } = useTheme();
@@ -275,6 +277,22 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     id: string;
   } | null>(null);
 
+  // Handle URL-based organization selection
+  useEffect(() => {
+    if (urlOrgId && orgs.length > 0 && view === 'feed') {
+      const urlOrg = orgs.find(org => org.id === urlOrgId);
+      if (urlOrg && (!selectedSidebarItem || selectedSidebarItem.id !== urlOrgId)) {
+        setSelectedSidebarItem({ type: 'org', id: urlOrgId });
+        
+        // If organization data is available, trigger the feed navigation
+        const details = (orgDetails[urlOrgId] as any) || {};
+        if (onOrgFeedClick && urlOrg.name) {
+          onOrgFeedClick({ ...urlOrg, userRole: details.role });
+        }
+      }
+    }
+  }, [urlOrgId, orgs, orgDetails, view, selectedSidebarItem, onOrgFeedClick]);
+
   // Mock data for groups and members (for demo)
   const mockGroups = [
     { id: "g1", name: "General", members: 8 },
@@ -407,6 +425,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           }}
           onBack={() => {
             setSelectedSidebarItem(null);
+          }}
+          onYourFeedClick={() => {
+            // Clear organization selection and navigate to Your Feed
+            setSelectedSidebarItem(null);
+            onFeedClick();
           }}
           onSettingsClick={() => {
             const org = orgs.find((o) => o.id === selectedSidebarItem.id);
@@ -642,10 +665,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   variant="default"
                   className="flex-1"
                   onClick={() => {
+                    const org = orgs.find((o) => o.id === pendingOrgSwitch);
+                    const details = (orgDetails[pendingOrgSwitch] as any) || {};
+                    
                     setSelectedSidebarItem({
                       type: "org",
                       id: pendingOrgSwitch,
                     });
+                    
+                    // Trigger navigation to organization feed
+                    if (org && onOrgFeedClick) {
+                      onOrgFeedClick({ ...org, userRole: details.role });
+                    }
+                    
                     setPendingOrgSwitch(null);
                   }}>
                   Switch

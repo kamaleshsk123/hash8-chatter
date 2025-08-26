@@ -795,6 +795,31 @@ export const subscribeToUserStatus = (userIds: string[], callback: (statuses: an
 // === DIRECT MESSAGING ===
 
 // Create or get existing direct message conversation between two users
+// Create conversation ID without Firebase calls (offline-friendly)
+export const createConversationId = (userId1: string, userId2: string): string => {
+  return [userId1, userId2].sort().join('_');
+};
+
+// Offline-friendly version of createOrGetDirectMessage
+export const createOrGetDirectMessageOffline = (userId1: string, userId2: string, isOnline: boolean = true) => {
+  const conversationId = createConversationId(userId1, userId2);
+  
+  if (!isOnline) {
+    // Return a minimal conversation object for offline use
+    return Promise.resolve({
+      id: conversationId,
+      participants: [userId1, userId2],
+      createdAt: new Date(),
+      lastActivity: new Date(),
+      lastMessage: null,
+      isOfflineGenerated: true
+    });
+  }
+  
+  // When online, use the original Firebase function
+  return createOrGetDirectMessage(userId1, userId2);
+};
+
 export const createOrGetDirectMessage = async (userId1: string, userId2: string) => {
   try {
     // Create a consistent conversation ID by sorting user IDs
@@ -1446,12 +1471,12 @@ export const logModerationAction = async (action: {
 };
 
 // Get moderation actions for an organization
-export const getModerationActions = async (orgId: string, limit: number = 50) => {
+export const getModerationActions = async (orgId: string, limitCount: number = 50) => {
   try {
     const q = query(
       collection(db, `organizations/${orgId}/moderation_actions`),
       orderBy('timestamp', 'desc'),
-      limit(limit)
+      limit(limitCount)
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({

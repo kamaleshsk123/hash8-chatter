@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { MessageReadReceipts } from "@/components/MessageReadReceipts";
 import { MessageModerationMenu } from "@/components/moderation/MessageModerationMenu";
+import { Clock, Wifi, WifiOff } from "lucide-react";
 
 interface ChatBubbleProps {
   message: Message;
@@ -96,6 +97,14 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
               <span>
                 {formatDistanceToNow(message.timestamp, { addSuffix: true })}
               </span>
+              
+              {/* Pending writes indicator */}
+              {message.hasPendingWrites && (
+                <div className="flex items-center gap-1 ml-2">
+                  <Clock className="w-3 h-3" />
+                  <span className="text-[10px] opacity-60">Sending...</span>
+                </div>
+              )}
             </div>
           </div>
 

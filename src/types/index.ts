@@ -66,6 +66,7 @@ export interface Message {
   deletedAt?: Date;
   deletionReason?: string;
   originalText?: string;
+  hasPendingWrites?: boolean; // Added for offline support
 }
 
 export interface ReadReceipt {
