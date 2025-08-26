@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,6 +186,8 @@ const mockChats = [
 const Chat = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Early return if user is not available
   if (!user) {
@@ -199,7 +202,10 @@ const Chat = () => {
   }
   // Group and chat state
   const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
-  const [selectedOrg, setSelectedOrg] = useState<any | null>(null);
+  const [selectedOrg, setSelectedOrg] = useState<any | null>(() => {
+    const urlOrgId = searchParams.get('orgId');
+    return urlOrgId ? { id: urlOrgId } : null;
+  });
   const [selectedChat, setSelectedChat] = useState<any | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [directMessages, setDirectMessages] = useState<{
@@ -223,12 +229,29 @@ const Chat = () => {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">("chat");
+  // Initialize view from URL parameters or default to "your-feed"
+  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">(() => {
+    const urlView = searchParams.get('view');
+    if (urlView && ['chat', 'feed', 'your-feed', 'direct_message'].includes(urlView)) {
+      return urlView as "chat" | "feed" | "your-feed" | "direct_message";
+    }
+    return "your-feed";
+  });
   const [showOrganizationSettings, setShowOrganizationSettings] =
     useState(false);
   const [selectedOrgForSettings, setSelectedOrgForSettings] =
     useState<any>(null);
   const refreshOrganizationsRef = useRef<() => void>(() => {});
+
+  // Function to update URL with current state
+  const updateURL = (newView: string, orgId?: string) => {
+    const params = new URLSearchParams();
+    params.set('view', newView);
+    if (orgId) {
+      params.set('orgId', orgId);
+    }
+    setSearchParams(params);
+  };
 
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isLeaveGroupDialogOpen, setIsLeaveGroupDialogOpen] = useState(false);
@@ -323,7 +346,7 @@ const Chat = () => {
           const filteredTyping = typingStatuses.filter(
             (status) => status.userId !== user?.uid
           );
-          setTypingUsers(filteredTyping);
+          setTypingUsers(filteredTyping as TypingStatus[]);
         }
       );
     } else {
@@ -396,6 +419,18 @@ const Chat = () => {
       }
     };
   }, [newMessage, selectedGroup, selectedOrg, user, isTyping]);
+
+  // Handle URL-based organization loading
+  useEffect(() => {
+    const urlOrgId = searchParams.get('orgId');
+    const urlView = searchParams.get('view');
+    
+    if (urlOrgId && urlView === 'feed' && !selectedOrg?.name) {
+      // Need to load organization data from the sidebar organizations
+      // This will be handled by the ChatSidebar's organization list
+      console.log('Loading organization from URL:', urlOrgId);
+    }
+  }, [searchParams, selectedOrg]);
 
   // Fetch group members and subscribe to their statuses
   useEffect(() => {
@@ -602,6 +637,7 @@ const Chat = () => {
                   setSelectedOrgForSettings(null);
                 }
                 setView("your-feed");
+                updateURL("your-feed");
                 if (isMobile) setSidebarOpen(false);
               }}
               onOrgFeedClick={(org) => {
@@ -612,6 +648,7 @@ const Chat = () => {
                 }
                 setSelectedOrg(org);
                 setView("feed");
+                updateURL("feed", org.id);
                 if (isMobile) setSidebarOpen(false);
               }}
               view={view}
@@ -623,6 +660,7 @@ const Chat = () => {
               refreshOrganizationsRef={refreshOrganizationsRef}
               onGroupSelect={handleSelectGroup}
               selectedGroupId={showOrganizationSettings || view === "feed" || view === "your-feed" ? null : selectedGroup?.id}
+              urlOrgId={searchParams.get('orgId')}
             />
           </>
         )}
@@ -650,6 +688,7 @@ const Chat = () => {
               setSidebarOpen(true);
             } else {
               setView("chat");
+              updateURL("chat");
             }
           }}
           org={selectedOrg}
@@ -661,6 +700,7 @@ const Chat = () => {
               setSidebarOpen(true);
             } else {
               setView("chat");
+              updateURL("chat");
             }
           }}
         />
