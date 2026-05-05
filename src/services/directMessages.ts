@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { uploadFile, deleteFile } from './fileStorage';
+import { generateUUID } from '@/utils/uuid';
 
 // === DIRECT MESSAGING ===
 
@@ -84,7 +85,7 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
   replyTo?: any;
 }) => {
   try {
-    const messageId = crypto.randomUUID();
+    const messageId = generateUUID();
     const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
     
     const messageDoc: any = {
@@ -292,7 +293,7 @@ export const sendDirectMessageWithFile = async (
   }
 ) => {
   try {
-    const messageId = crypto.randomUUID();
+    const messageId = generateUUID();
     let fileUrl = '';
     let fileName = '';
     let fileSize = 0;

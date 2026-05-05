@@ -69,7 +69,12 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
               timestamp: doc.data().timestamp?.toDate() || new Date(),
             })) as Post[];
 
-            postsByOrg[org.id] = orgPosts;
+            // Filter to only include posts authored by the current user
+            const myOrgPosts = orgPosts.filter(
+              (post) => post.user.name === currentUser.name
+            );
+
+            postsByOrg[org.id] = myOrgPosts;
 
             // Merge all org posts and sort by timestamp
             const allPosts = Object.values(postsByOrg)
@@ -151,7 +156,7 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
                   <path d="M16 3v4M8 3v4M3 11h18" />
                 </svg>
                 <div className="text-lg font-medium">No posts yet.</div>
-                <div className="text-sm mt-1">Posts from your organizations will appear here.</div>
+                <div className="text-sm mt-1 text-center">Posts you create in your organizations will appear here.</div>
               </div>
             ) : (
               posts.map((post) => (

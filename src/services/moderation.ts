@@ -12,6 +12,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { generateUUID } from '@/utils/uuid';
 
 // === MODERATOR ROLE MANAGEMENT ===
 
@@ -88,7 +89,7 @@ export const promoteToModerator = async (
   
   // Log the moderation action
   await logModerationAction({
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     actionType: 'promote_user',
     targetId: userId,
     moderatorId: promotedBy,
@@ -135,7 +136,7 @@ export const demoteFromModerator = async (
   
   // Log the moderation action
   await logModerationAction({
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     actionType: 'demote_user',
     targetId: userId,
     moderatorId: demotedBy,
@@ -180,7 +181,7 @@ export const deleteMessageAsModerator = async (
     
     // Log the moderation action
     await logModerationAction({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       actionType: 'delete_message',
       targetId: messageId,
       targetName: `Message by ${messageData.senderName}`,
@@ -229,7 +230,7 @@ export const banUserFromOrganization = async (
     
     // Log the moderation action
     await logModerationAction({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       actionType: 'ban_user',
       targetId: userId,
       targetName: userName,

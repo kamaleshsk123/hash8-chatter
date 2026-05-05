@@ -18,6 +18,7 @@ import {
   db
 } from "@/services/firebase";
 import { offlineCache } from "@/services/offlineCache";
+import { generateUUID } from "@/utils/uuid";
 import { hybridMessaging, HybridMessage } from "@/services/hybridMessaging";
 import { bluetoothMessaging } from "@/services/bluetoothMessaging";
 import { doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -269,30 +270,11 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
   // Handle network status changes for Bluetooth
   useEffect(() => {
-    if (!isOnline && !bluetoothStatus.enabled && !bluetoothStatus.scanning) {
-      // Try to enable Bluetooth when going offline
-      setBluetoothStatus(prev => ({ ...prev, scanning: true }));
-      
-      hybridMessaging.enableBluetoothMode()
-        .then(enabled => {
-          setBluetoothStatus({
-            enabled,
-            deviceCount: enabled ? bluetoothMessaging.getConnectedDevices().length : 0,
-            scanning: false
-          });
-          
-          if (enabled) {
-            toast({
-              title: "Bluetooth Messaging Enabled",
-              description: `Connected to ${bluetoothMessaging.getConnectedDevices().length} nearby device(s)`,
-              duration: 4000,
-            });
-          }
-        })
-        .catch(error => {
-          console.error('Bluetooth initialization failed:', error);
-          setBluetoothStatus({ enabled: false, deviceCount: 0, scanning: false });
-        });
+    if (!isOnline && !bluetoothStatus.enabled) {
+      // We can no longer automatically scan for Bluetooth devices when going offline
+      // because browsers require a user gesture (like a button click) to open the
+      // Bluetooth device chooser (SecurityError).
+      console.log("[Bluetooth] Offline mode detected. User must manually initiate Bluetooth scan.");
     } else if (isOnline && bluetoothStatus.enabled) {
       // Sync Bluetooth messages when coming back online
       hybridMessaging.syncOfflineMessages()
@@ -307,7 +289,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           console.error('Sync failed:', error);
         });
     }
-  }, [isOnline, bluetoothStatus.enabled, bluetoothStatus.scanning, toast]);
+  }, [isOnline, bluetoothStatus.enabled, toast]);
 
   useEffect(() => {
     if (!conversationId || !user) return;
@@ -531,7 +513,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         fileUrl = await uploadDocumentToCloudinary(file);
       }
 
-      const messageId = crypto.randomUUID();
+      const messageId = generateUUID();
       const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
       
       const messageDoc = {
@@ -598,7 +580,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
       const fileUrl = await uploadDocumentToCloudinary(audioFile);
 
-      const messageId = crypto.randomUUID();
+      const messageId = generateUUID();
       const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
       
       const messageDoc = {

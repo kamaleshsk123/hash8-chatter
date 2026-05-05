@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { getUsersByIds } from './users';
+import { generateUUID } from '@/utils/uuid';
 
 // Create a new group in an organization
 export const createGroup = async (groupData: {
@@ -24,7 +25,7 @@ export const createGroup = async (groupData: {
   members: string[]; // Array of user IDs
   createdBy: string;
 }) => {
-  const groupId = crypto.randomUUID();
+  const groupId = generateUUID();
   const groupRef = doc(db, `organizations/${groupData.organizationId}/groups`, groupId);
   
   await setDoc(groupRef, {
@@ -128,7 +129,7 @@ export const sendSystemMessage = async (systemMessageData: {
   groupId: string;
   text: string;
 }) => {
-  const messageId = crypto.randomUUID();
+  const messageId = generateUUID();
   const messageRef = doc(db, `organizations/${systemMessageData.organizationId}/groups/${systemMessageData.groupId}/messages`, messageId);
   
   const messageDoc = {
@@ -180,7 +181,7 @@ export const sendGroupMessage = async (orgId: string, groupId: string, messageDa
   type?: 'text' | 'image' | 'file';
 }) => {
   try {
-    const messageId = crypto.randomUUID();
+    const messageId = generateUUID();
     const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
     
     const messageDoc = {

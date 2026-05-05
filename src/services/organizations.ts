@@ -10,6 +10,7 @@ import {
   where
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { generateUUID } from '@/utils/uuid';
 
 // Organization and Membership Firestore functions
 export const createOrganization = async (
@@ -17,7 +18,7 @@ export const createOrganization = async (
   creator: { uid: string; email: string }
 ) => {
   // creator: { uid, email }
-  const orgUID = crypto.randomUUID();
+  const orgUID = generateUUID();
   const orgRef = doc(db, "organizations", orgUID);
   await setDoc(orgRef, {
     id: orgUID,

@@ -3,6 +3,18 @@ import { bluetoothMessaging, BluetoothMessage } from './bluetoothMessaging';
 import { offlineCache } from './offlineCache';
 import { syncService } from './syncService';
 
+// Fallback UUID generator for insecure contexts (like accessing via IP over HTTP)
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 type MessageTransport = 'firebase' | 'bluetooth' | 'cache';
 
 interface HybridMessage {
@@ -76,7 +88,7 @@ class HybridMessagingService {
     messageData: Omit<HybridMessage, 'id' | 'timestamp' | 'transport' | 'conversationId'>,
     isOnline: boolean
   ): Promise<MessageSendResult> {
-    const messageId = crypto.randomUUID();
+    const messageId = generateUUID();
     const message: HybridMessage = {
       id: messageId,
       conversationId,
