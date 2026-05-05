@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Plus, Heart, MessageCircle, Share, MoreHorizontal, Bookmark, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Heart, MessageCircle, Share, MoreHorizontal, Bookmark, Eye, Menu } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { AddPostInput } from "./AddPostInput";
-import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, updateDoc, doc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "../services/firebase";
+import { getUserOrganizations } from "@/services/firebase";
+import { useAuth } from "@/context/AuthContext";
 
 interface YourFeedProps {
   onBack: () => void;
@@ -15,7 +16,9 @@ interface YourFeedProps {
 
 interface Post {
   id: string;
-  user: { name: string; avatar: string };
+  orgId: string;
+  orgName: string;
+  user: { name: string; avatar: string; role?: string };
   image?: string;
   text: string;
   comments: { id: string; user: string; text: string }[];
@@ -29,106 +32,88 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showWebAddButton, setShowWebAddButton] = useState(true);
-  const addPostRef = useRef<HTMLDivElement>(null);
-  const tabRef = useRef<HTMLDivElement>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [postToDelete, setPostToDelete] = useState<string | null>(null);
-  const currentUserAvatar = "JD"; // The current user's avatar initials
-  
-  // Sample users for demo purposes (other users in the system)
-  const sampleUsers = [
-    { name: "Alice Johnson", avatar: "AJ" },
-    { name: "Bob Smith", avatar: "BS" },
-    { name: "Carol Davis", avatar: "CD" },
-    { name: "David Wilson", avatar: "DW" },
-    { name: "Emma Brown", avatar: "EB" }
-  ];
+  const { user: currentUser } = useAuth();
 
-  // Fetch posts from Firebase
+  // Aggregate posts from all user's organizations in real-time
   useEffect(() => {
-    const fetchPosts = async () => {
+    if (!currentUser?.uid) {
+      setLoading(false);
+      return;
+    }
+
+    let unsubscribes: (() => void)[] = [];
+
+    const loadFeed = async () => {
       try {
-        const postsCol = collection(db, "posts");
-        const q = query(postsCol, orderBy("timestamp", "desc"));
-        const postSnapshot = await getDocs(q);
-        const postsData = postSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp.toDate(), // Convert Firebase Timestamp to Date object
-        })) as Post[];
+        const orgs = await getUserOrganizations(currentUser.uid);
         
-        // If no posts found, add some sample posts for demo
-        if (postsData.length === 0) {
-          const samplePosts: Post[] = [
-            {
-              id: "sample-1",
-              user: { name: "Alice Johnson", avatar: "AJ" },
-              text: "Just finished an amazing project! Excited to share it with everyone 🚀",
-              timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-              comments: [],
-              reactions: { "👍": ["Bob Smith", "Carol Davis"], "❤️": ["David Wilson"] },
-              seenBy: [],
-            },
-            {
-              id: "sample-2",
-              user: { name: "Bob Smith", avatar: "BS" },
-              text: "Beautiful sunset today! Nature never fails to amaze me 🌅",
-              image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&h=300&fit=crop",
-              timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-              comments: [
-                { id: "c1", user: "Alice Johnson", text: "Absolutely gorgeous!" },
-                { id: "c2", user: "Emma Brown", text: "Where was this taken?" }
-              ],
-              reactions: { "😍": ["Alice Johnson", "Emma Brown", "Carol Davis"] },
-              seenBy: [],
-            },
-            {
-              id: "sample-3",
-              user: { name: "Carol Davis", avatar: "CD" },
-              text: "Learning something new every day! Today's topic: React hooks. The more I learn, the more I realize how much I don't know 😅",
-              timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-              comments: [
-                { id: "c3", user: "David Wilson", text: "That's the spirit! Keep learning 💪" }
-              ],
-              reactions: { "💯": ["David Wilson", "Bob Smith"] },
-              seenBy: [],
-            }
-          ];
-          setPosts(samplePosts);
-        } else {
-          setPosts(postsData);
+        if (orgs.length === 0) {
+          setPosts([]);
+          setLoading(false);
+          return;
         }
+
+        // Track posts by org so we can merge them
+        const postsByOrg: Record<string, Post[]> = {};
+
+        orgs.forEach((org: any) => {
+          const postsCol = collection(db, `organizations/${org.id}/posts`);
+          const q = query(postsCol, orderBy("timestamp", "desc"));
+
+          const unsubscribe = onSnapshot(q, (snapshot) => {
+            const orgPosts = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              orgId: org.id,
+              orgName: org.name || "Unknown Org",
+              ...doc.data(),
+              timestamp: doc.data().timestamp?.toDate() || new Date(),
+            })) as Post[];
+
+            postsByOrg[org.id] = orgPosts;
+
+            // Merge all org posts and sort by timestamp
+            const allPosts = Object.values(postsByOrg)
+              .flat()
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+            setPosts(allPosts);
+            setLoading(false);
+          }, (err) => {
+            console.error(`Error fetching posts for org ${org.id}:`, err);
+          });
+
+          unsubscribes.push(unsubscribe);
+        });
       } catch (err) {
-        console.error("Error fetching posts:", err);
-        setError("Failed to load posts.");
-      } finally {
+        console.error("Error loading feed:", err);
+        setError("Failed to load your feed.");
         setLoading(false);
       }
     };
 
-    fetchPosts();
-  }, []);
+    loadFeed();
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (addPostRef.current && tabRef.current) {
-        const addPostRect = addPostRef.current.getBoundingClientRect();
-        const tabRect = tabRef.current.getBoundingClientRect();
-        setShowWebAddButton(addPostRect.bottom < tabRect.bottom);
-      }
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
     };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [currentUser?.uid]);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-full">Loading feed...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-chat">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+        <div className="text-muted-foreground font-medium">Loading feed...</div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="flex justify-center items-center h-full text-red-500">Error: {error}</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-chat">
+        <div className="text-red-500 font-medium mb-2">Error loading feed</div>
+        <div className="text-muted-foreground text-sm">{error}</div>
+      </div>
+    );
   }
 
   return (
@@ -142,7 +127,7 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
           className="mr-2 sm:hidden"
           aria-label="Go back"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <Menu className="w-5 h-5" />
         </Button>
         <h2 className="text-xl font-bold text-foreground">Your Feed</h2>
       </div>
@@ -165,12 +150,13 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
                   <rect x="3" y="7" width="18" height="13" rx="2" />
                   <path d="M16 3v4M8 3v4M3 11h18" />
                 </svg>
-                <div className="text-lg font-medium">No posts to show.</div>
+                <div className="text-lg font-medium">No posts yet.</div>
+                <div className="text-sm mt-1">Posts from your organizations will appear here.</div>
               </div>
             ) : (
               posts.map((post) => (
                 <motion.div
-                  key={post.id}
+                  key={`${post.orgId}-${post.id}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
@@ -178,6 +164,12 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
                 >
                   <Card className="overflow-hidden">
                     <CardContent className="p-0">
+                      {/* Org Badge */}
+                      <div className="px-4 pt-3 pb-0">
+                        <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                          {post.orgName}
+                        </span>
+                      </div>
                       {/* Post Header */}
                       <div className="flex items-center gap-3 p-4 pb-2">
                         <Avatar className="w-10 h-10">
@@ -188,15 +180,14 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-sm">{post.user.name}</h3>
+                            <h3 className="font-semibold text-sm">
+                              {post.user.name === currentUser?.name ? "You" : post.user.name}
+                            </h3>
                             <span className="text-muted-foreground text-xs">
                               {formatDistanceToNow(post.timestamp, { addSuffix: true })}
                             </span>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="w-8 h-8">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
                       </div>
 
                       {/* Post Content */}
@@ -214,6 +205,30 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
                           />
                         </div>
                       )}
+
+                      {/* Reactions and Stats */}
+                      <div className="flex items-center justify-between px-4 py-2 border-t border-border">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {post.reactions && Object.keys(post.reactions).length > 0 && (
+                            Object.entries(post.reactions).map(([emoji, users]) => (
+                              <span
+                                key={emoji}
+                                className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground"
+                              >
+                                {emoji} {(users as string[]).length}
+                              </span>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 text-muted-foreground text-xs">
+                          {post.seenBy && (
+                            <span className="flex items-center gap-1">
+                              <Eye className="w-3.5 h-3.5" /> {post.seenBy.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -221,32 +236,6 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
             )}
           </AnimatePresence>
         </div>
-
-        {/* Floating Add Button - Mobile */}
-        <AnimatePresence>
-          {showWebAddButton && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="fixed bottom-6 right-6 z-50 sm:hidden"
-            >
-              <Button
-                size="icon"
-                className="w-14 h-14 rounded-full shadow-lg"
-                onClick={() => {
-                  // Scroll to top to show add post input
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-              >
-                <Plus className="w-6 h-6" />
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Tab reference for scroll detection */}
-        <div ref={tabRef} className="h-0" />
       </div>
     </div>
   );
