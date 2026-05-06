@@ -158,30 +158,6 @@ const mockMessages: Message[] = [
   },
 ];
 
-// Add mock chats data
-const mockChats = [
-  {
-    id: "chat1",
-    name: "Alice Johnson",
-    avatar: "",
-    lastMessage: "See you at the meeting!",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: "chat2",
-    name: "Bob Smith",
-    avatar: "",
-    lastMessage: "Thanks for the update.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 15),
-  },
-  {
-    id: "chat3",
-    name: "Carol Davis",
-    avatar: "",
-    lastMessage: "Can you review the document?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-  },
-];
 
 const Chat = () => {
   const { user, signOut } = useAuth();
@@ -627,7 +603,6 @@ const Chat = () => {
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleSignOut={handleSignOut}
-              mockChats={mockChats}
               selectedChat={selectedChat}
               handleSelectChat={handleSelectChat}
               onFeedClick={() => {
