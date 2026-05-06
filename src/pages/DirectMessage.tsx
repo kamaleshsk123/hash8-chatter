@@ -196,6 +196,11 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         }
       }
 
+      // Reset unread count immediately if online
+      if (isOnline && user) {
+        resetUnreadCount(conversationId, user.uid);
+      }
+
       // If online, also set up real-time subscription
       if (isOnline) {
         try {

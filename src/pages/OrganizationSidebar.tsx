@@ -235,7 +235,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
     const unsubscribeConversations = subscribeToConversations(userId, (conversations) => {
       const counts: Record<string, number> = {};
       conversations.forEach(conv => {
-        if (conv.unreadCount && conv.unreadCount[userId]) {
+        if (conv.unreadCount && conv.unreadCount[userId] !== undefined) {
           counts[conv.id] = conv.unreadCount[userId];
         }
       });

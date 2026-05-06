@@ -200,7 +200,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const unsubscribe = subscribeToConversations(user.uid, async (conversations) => {
       // Filter conversations that have unread messages for the current user
       const unread = conversations.filter(conv => 
-        conv.unreadCount && conv.unreadCount[user.uid] > 0
+        conv.unreadCount && conv.unreadCount[user.uid] !== undefined && conv.unreadCount[user.uid] > 0
       );
       
       setUnreadConversations(unread);
