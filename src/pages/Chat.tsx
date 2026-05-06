@@ -177,7 +177,15 @@ const Chat = () => {
     );
   }
   // Group and chat state
-  const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<any | null>(() => {
+    const urlGroupId = searchParams.get('groupId');
+    const urlView = searchParams.get('view');
+    // If it's a direct message, the groupId is the conversationId
+    if (urlView === 'direct_message' && urlGroupId) {
+      return { id: urlGroupId, type: 'direct_message' };
+    }
+    return urlGroupId ? { id: urlGroupId } : null;
+  });
   const [selectedOrg, setSelectedOrg] = useState<any | null>(() => {
     const urlOrgId = searchParams.get('orgId');
     return urlOrgId ? { id: urlOrgId } : null;
@@ -220,11 +228,14 @@ const Chat = () => {
   const refreshOrganizationsRef = useRef<() => void>(() => {});
 
   // Function to update URL with current state
-  const updateURL = (newView: string, orgId?: string) => {
+  const updateURL = (newView: string, orgId?: string, groupId?: string) => {
     const params = new URLSearchParams();
     params.set('view', newView);
     if (orgId) {
       params.set('orgId', orgId);
+    }
+    if (groupId) {
+      params.set('groupId', groupId);
     }
     setSearchParams(params);
   };
@@ -259,6 +270,43 @@ const Chat = () => {
   useEffect(() => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
+
+  // Fetch group/conversation details if initialized from URL with only an ID
+  useEffect(() => {
+    if (selectedGroup && !selectedGroup.name && !selectedGroup.type) {
+      const fetchDetails = async () => {
+        try {
+          // Check if it's a direct message (conversation ID usually has an underscore)
+          if (selectedGroup.id.includes('_')) {
+            const participants = selectedGroup.id.split('_');
+            const otherUserId = participants.find(id => id !== user?.uid);
+            if (otherUserId) {
+              const profiles = await getUsersByIds([otherUserId]);
+              if (profiles && profiles.length > 0) {
+                const profile = profiles[0];
+                setSelectedGroup({
+                  id: selectedGroup.id,
+                  name: `Direct Message with ${profile.displayName || otherUserId}`,
+                  type: 'direct_message',
+                  otherUser: {
+                    userId: otherUserId,
+                    name: profile.displayName || otherUserId,
+                    avatar: profile.avatar || ""
+                  },
+                  avatar: profile.avatar || "",
+                  members: participants
+                });
+                setView("direct_message");
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error hydrating group details:", err);
+        }
+      };
+      fetchDetails();
+    }
+  }, [selectedGroup, selectedOrg, user?.uid]);
 
   // Real-time message subscription for selected group
   useEffect(() => {
@@ -554,12 +602,14 @@ const Chat = () => {
       setSelectedOrg(null);
       setSelectedChat(null);
       setView("direct_message");
+      updateURL("direct_message", undefined, group.id);
     } else {
       // Handle regular group selection
       setSelectedGroup(group);
       setSelectedOrg(org);
       setSelectedChat(null);
       setView("chat");
+      updateURL("chat", org?.id, group?.id);
     }
     
     if (isMobile) setSidebarOpen(false);
@@ -695,9 +745,9 @@ const Chat = () => {
           />
         </ErrorBoundary>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0 ">
+        <div className="flex-1 flex flex-col min-h-0 bg-background">
           {/* Chat Header */}
-          <div className="sticky top-0 z-20 bg-chat-header shadow-header border-b border-border px-2 sm:px-4 lg:px-0 py-2 flex items-center justify-between">
+          <div className="sticky top-0 z-20 bg-chat-header shadow-header border-b border-border px-2 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* Sidebar open button for mobile */}
               <Button
@@ -910,7 +960,7 @@ const Chat = () => {
           </div>
           {/* Main chat scrollable area */}
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto bg-gradient-chat px-2 sm:px-4 lg:px-0">
+            <div className="flex-1 overflow-y-auto bg-background px-2 sm:px-4 lg:px-0">
               <div className="py-4 px-2 w-full">
                 {messagesLoading ? (
                   <div className="flex items-center justify-center h-32">
