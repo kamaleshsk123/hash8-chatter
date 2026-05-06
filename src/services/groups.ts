@@ -245,6 +245,9 @@ export const subscribeToGroupMessages = (
         isEdited: data.isEdited || false,
         editedAt: data.editedAt?.toDate(),
         replyTo: data.replyTo,
+        isPinned: data.isPinned || false,
+        pinnedBy: data.pinnedBy,
+        pinnedAt: data.pinnedAt?.toDate(),
         hasPendingWrites: doc.metadata.hasPendingWrites // Added for offline support
       };
     });
@@ -463,5 +466,64 @@ export const markMultipleMessagesAsRead = async (
     await Promise.all(batch);
   } catch (error) {
     console.error('Error marking multiple messages as read:', error);
+  }
+};
+
+// Toggle pin status of a group message
+export const togglePinGroupMessage = async (
+  orgId: string,
+  groupId: string,
+  messageId: string,
+  userId: string,
+  isPinned: boolean
+) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      isPinned,
+      pinnedBy: isPinned ? userId : null,
+      pinnedAt: isPinned ? serverTimestamp() : null
+    });
+  } catch (error) {
+    console.error('Error toggling message pin:', error);
+    throw error;
+  }
+};
+
+// Delete a group message (for the message owner)
+export const deleteGroupMessage = async (
+  orgId: string,
+  groupId: string,
+  messageId: string
+) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      deleted: true,
+      deletedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error deleting group message:', error);
+    throw error;
+  }
+};
+
+// Edit a group message
+export const editGroupMessage = async (
+  orgId: string,
+  groupId: string,
+  messageId: string,
+  newText: string
+) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      text: newText,
+      isEdited: true,
+      editedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error editing group message:', error);
+    throw error;
   }
 };

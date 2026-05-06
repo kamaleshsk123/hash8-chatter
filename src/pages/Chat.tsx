@@ -21,7 +21,15 @@ import {
   getUsersByIds,
   subscribeToUserStatus,
   leaveGroup,
+  getUserRoleInOrganization,
+  getOrganizationByUID,
+  getGroupDetails,
 } from "@/services/firebase";
+import {
+  togglePinGroupMessage,
+  deleteGroupMessage,
+  editGroupMessage,
+} from "@/services/groups";
 import {
   Send,
   Menu,
@@ -33,6 +41,10 @@ import {
   LogOut,
   Moon,
   Sun,
+  Pin,
+  PinOff,
+  X,
+  Edit2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -209,6 +221,8 @@ const Chat = () => {
   // Loading states
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   // UI state
   const isMobile = useIsMobile();
@@ -300,12 +314,40 @@ const Chat = () => {
                 setView("direct_message");
               }
             }
+          } else if (selectedOrg?.id) {
+            // Hydrate regular group details
+            const groupDetails = await getGroupDetails(selectedOrg.id, selectedGroup.id);
+            if (groupDetails) {
+              setSelectedGroup(groupDetails);
+            }
           }
         } catch (err) {
           console.error("Error hydrating group details:", err);
         }
       };
       fetchDetails();
+    }
+
+    // Hydrate organization details if missing
+    if (selectedOrg && !selectedOrg.name && user?.uid) {
+      const fetchOrgDetails = async () => {
+        try {
+          const [role, orgData] = await Promise.all([
+            getUserRoleInOrganization(user.uid, selectedOrg.id),
+            getOrganizationByUID(selectedOrg.id)
+          ]);
+          
+          if (orgData) {
+            setSelectedOrg({
+              ...orgData,
+              userRole: role
+            });
+          }
+        } catch (err) {
+          console.error("Error hydrating organization details:", err);
+        }
+      };
+      fetchOrgDetails();
     }
   }, [selectedGroup, selectedOrg, user?.uid]);
 
@@ -498,32 +540,45 @@ const Chat = () => {
       setSendingMessage(true);
 
       try {
-        await sendGroupMessage(selectedOrg.id, selectedGroup.id, {
-          text: newMessage.trim(),
-          type: "text",
-          senderId: user.uid,
-          senderName: user.name || user.email || "Unknown User",
-          senderAvatar: user.avatar || "",
-        });
+        if (editingMessageId) {
+          // Handle edit mode
+          await editGroupMessage(selectedOrg.id, selectedGroup.id, editingMessageId, newMessage.trim());
+          setEditingMessageId(null);
+          setEditingText("");
+          setNewMessage("");
+          toast({
+            title: "Message updated",
+            description: "Your message has been edited successfully."
+          });
+        } else {
+          // Handle new message mode
+          await sendGroupMessage(selectedOrg.id, selectedGroup.id, {
+            text: newMessage.trim(),
+            type: "text",
+            senderId: user.uid,
+            senderName: user.name || user.email || "Unknown User",
+            senderAvatar: user.avatar || "",
+          });
 
-        setNewMessage("");
+          setNewMessage("");
 
-        // Stop typing indicator since message was sent
-        if (isTyping) {
-          setIsTyping(false);
-          updateTypingStatus(
-            selectedOrg.id,
-            selectedGroup.id,
-            user.uid,
-            user.name,
-            false
-          );
+          // Stop typing indicator since message was sent
+          if (isTyping) {
+            setIsTyping(false);
+            updateTypingStatus(
+              selectedOrg.id,
+              selectedGroup.id,
+              user.uid,
+              user.name,
+              false
+            );
+          }
         }
       } catch (error) {
-        console.error("Error sending message:", error);
+        console.error("Error in message action:", error);
         toast({
           title: "Error",
-          description: "Failed to send message. Please try again.",
+          description: editingMessageId ? "Failed to update message." : "Failed to send message. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -627,6 +682,32 @@ const Chat = () => {
     setSelectedOrg(null);
     setView("chat");
     if (isMobile) setSidebarOpen(false);
+  };
+
+  const handleTogglePin = async (messageId: string, isPinned: boolean) => {
+    if (!selectedOrg || !selectedGroup) return;
+    try {
+      await togglePinGroupMessage(selectedOrg.id, selectedGroup.id, messageId, user?.uid || '', isPinned);
+    } catch (error) {
+      console.error("Error toggling pin:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update pin status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditMessage = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingText(message.text);
+    setNewMessage(message.text);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+    setNewMessage("");
   };
 
   // All messages are already filtered by the Firebase subscription
@@ -878,6 +959,75 @@ const Chat = () => {
                       </div>
                     </SheetContent>
                   </Sheet>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" size="icon" className="relative">
+                        <Pin className="w-4 h-4" />
+                        {messages.filter(m => m.isPinned).length > 0 && (
+                          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow-sm">
+                            {messages.filter(m => m.isPinned).length}
+                          </span>
+                        )}
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right">
+                      <SheetHeader>
+                        <SheetTitle>Pinned Messages</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-6">
+                        {messages.filter(m => m.isPinned).length > 0 ? (
+                          <div className="flex flex-col gap-4">
+                            {messages
+                              .filter(m => m.isPinned)
+                              .sort((a, b) => (b.pinnedAt?.getTime() || 0) - (a.pinnedAt?.getTime() || 0))
+                              .map(msg => (
+                                <div 
+                                  key={msg.id} 
+                                  className="p-3 bg-muted rounded-lg border border-border/50 group relative cursor-pointer hover:bg-muted/80 transition-colors"
+                                  onClick={() => {
+                                    const el = document.getElementById(`msg-${msg.id}`);
+                                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Avatar className="w-5 h-5">
+                                      <AvatarImage src={msg.senderAvatar} />
+                                      <AvatarFallback className="text-[8px] bg-primary/10">
+                                        {msg.senderName.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-[11px] font-medium">{msg.senderName}</span>
+                                    <span className="text-[9px] text-muted-foreground ml-auto">
+                                      {msg.pinnedAt?.toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs line-clamp-3">{msg.text}</p>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background shadow-sm border opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTogglePin(msg.id, false);
+                                    }}
+                                  >
+                                    <PinOff className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                              <Pin className="w-6 h-6 text-muted-foreground opacity-20" />
+                            </div>
+                            <p className="text-sm text-muted-foreground italic">No pinned messages yet.</p>
+                            <p className="text-xs text-muted-foreground/60 mt-1">Pin important messages to find them easily.</p>
+                          </div>
+                        )}
+                      </div>
+                    </SheetContent>
+                  </Sheet>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
@@ -1031,11 +1181,14 @@ const Chat = () => {
                               </div>
                             )}
                             <ChatBubble
+                              key={message.id}
                               message={message}
                               isConsecutive={isConsecutive}
                               currentUserRole={selectedOrg?.userRole}
                               organizationId={selectedOrg?.id}
                               groupId={selectedGroup?.id}
+                              onTogglePin={handleTogglePin}
+                              onEditMessage={handleEditMessage}
                               onMessageDeleted={() => {
                                 // Refresh messages when a message is deleted
                                 // The subscription should handle this automatically
@@ -1053,6 +1206,19 @@ const Chat = () => {
             </div>
             {/* Message Input */}
             <div className="p-2 sm:p-4 bg-chat-header border-t border-border sticky bottom-0 z-10">
+              {editingMessageId && (
+                <div className="mb-2 px-3 py-1.5 bg-primary/5 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <Edit2 className="w-3 h-3 text-primary shrink-0" />
+                    <span className="text-[11px] text-muted-foreground truncate">
+                      Editing: {editingText}
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={cancelEditing} className="h-5 w-5 rounded-full">
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="flex-1 relative">
                   <Input

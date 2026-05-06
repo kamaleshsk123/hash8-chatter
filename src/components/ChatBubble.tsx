@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { MessageReadReceipts } from "@/components/MessageReadReceipts";
 import { MessageModerationMenu } from "@/components/moderation/MessageModerationMenu";
-import { Clock, Wifi, WifiOff } from "lucide-react";
+import { Clock, Wifi, WifiOff, Pin } from "lucide-react";
 
 interface ChatBubbleProps {
   message: Message;
@@ -15,6 +15,8 @@ interface ChatBubbleProps {
   organizationId?: string;
   groupId?: string;
   onMessageDeleted?: () => void;
+  onTogglePin?: (messageId: string, isPinned: boolean) => void;
+  onEditMessage?: (message: Message) => void;
 }
 
 export const ChatBubble: React.FC<ChatBubbleProps> = ({
@@ -24,6 +26,8 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   organizationId,
   groupId,
   onMessageDeleted,
+  onTogglePin,
+  onEditMessage,
 }) => {
   const { user } = useAuth();
   const isOwnMessage = message.senderId === user?.uid;
@@ -86,7 +90,22 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 This message was deleted by a moderator
               </p>
             ) : (
-              <p className="text-sm leading-relaxed">{message.text}</p>
+              <div className="flex flex-col gap-1">
+                {message.isPinned && (
+                  <div className="flex items-center gap-1 text-[10px] opacity-70 mb-1">
+                    <Pin className="w-3 h-3 fill-current" />
+                    <span>Pinned</span>
+                  </div>
+                )}
+                <p className="text-sm leading-relaxed">
+                  {message.text}
+                  {message.isEdited && (
+                    <span className="text-[10px] opacity-50 ml-1 italic font-normal">
+                      (edited)
+                    </span>
+                  )}
+                </p>
+              </div>
             )}
 
             <div
@@ -111,8 +130,8 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
           {/* Moderation Menu - only show if not deleted and user has permissions */}
           {!message.deleted && currentUserRole && organizationId && groupId && (
             <div className={cn(
-              "absolute top-2",
-              isOwnMessage ? "left-2" : "right-2"
+              "absolute top-1",
+              isOwnMessage ? "-left-7" : "-right-7"
             )}>
               <MessageModerationMenu
                 message={message}
@@ -122,6 +141,8 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 organizationId={organizationId}
                 groupId={groupId}
                 onMessageDeleted={onMessageDeleted}
+                onTogglePin={onTogglePin}
+                onEditMessage={onEditMessage}
               />
             </div>
           )}

@@ -165,7 +165,10 @@ export const getDirectMessages = async (conversationId: string, limitCount: numb
     return snapshot.docs.map(doc => ({ 
       id: doc.id, 
       ...doc.data(),
-      timestamp: doc.data().timestamp?.toDate() || new Date()
+      timestamp: doc.data().timestamp?.toDate() || new Date(),
+      isPinned: doc.data().isPinned || false,
+      pinnedBy: doc.data().pinnedBy,
+      pinnedAt: doc.data().pinnedAt?.toDate()
     }));
   } catch (error) {
     console.error('Error getting direct messages:', error);
@@ -203,6 +206,9 @@ export const subscribeToDirectMessages = (
         isEdited: data.isEdited || false,
         editedAt: data.editedAt?.toDate(),
         replyTo: data.replyTo,
+        isPinned: data.isPinned || false,
+        pinnedBy: data.pinnedBy,
+        pinnedAt: data.pinnedAt?.toDate(),
         hasPendingWrites: doc.metadata.hasPendingWrites // Added for offline support
       };
 
@@ -619,4 +625,24 @@ export const subscribeToConversations = (
     }));
     onUpdate(conversations);
   });
+};
+
+// Toggle pin status of a direct message
+export const togglePinDirectMessage = async (
+  conversationId: string,
+  messageId: string,
+  userId: string,
+  isPinned: boolean
+) => {
+  try {
+    const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      isPinned,
+      pinnedBy: isPinned ? userId : null,
+      pinnedAt: isPinned ? serverTimestamp() : null
+    });
+  } catch (error) {
+    console.error('Error toggling direct message pin:', error);
+    throw error;
+  }
 };

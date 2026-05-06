@@ -66,6 +66,9 @@ export interface Message {
   deletedAt?: Date;
   deletionReason?: string;
   originalText?: string;
+  isPinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: Date;
   hasPendingWrites?: boolean; // Added for offline support
 }
 

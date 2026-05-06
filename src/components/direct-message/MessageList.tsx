@@ -3,7 +3,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Edit2, Trash2, Reply, Paperclip, Check, CheckCheck, Clock } from "lucide-react";
+import { 
+  MoreVertical, 
+  Edit2, 
+  Trash2, 
+  Reply, 
+  Paperclip, 
+  Check, 
+  CheckCheck, 
+  Clock, 
+  Pin, 
+  PinOff 
+} from "lucide-react";
 import { MessageReactions } from "@/components/MessageReactions";
 import { ReplyToMessage } from "@/components/ReplyToMessage";
 import { EmojiPickerComponent } from "@/components/EmojiPicker";
@@ -42,6 +53,7 @@ interface Message {
   };
   deleted?: boolean;
   hasPendingWrites?: boolean; // Added for offline support
+  isPinned?: boolean;
 }
 
 interface MessageListProps {
@@ -56,6 +68,7 @@ interface MessageListProps {
   handleReplyToMessage: (message: Message) => void;
   handleReaction: (messageId: string, emoji: string) => void;
   handleReplyClick: (messageId: string) => void;
+  handleTogglePin: (messageId: string, isPinned: boolean) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -70,6 +83,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   handleReplyToMessage,
   handleReaction,
   handleReplyClick,
+  handleTogglePin,
 }) => {
   return (
     <ScrollArea className="flex-1 p-4">
@@ -142,6 +156,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                             : 'bg-muted text-foreground'
                         }`}
                       >
+                        {message.isPinned && (
+                          <div className="flex items-center gap-1 text-[10px] opacity-70 mb-1 border-b border-white/20 pb-1">
+                            <Pin className="w-3 h-3 fill-current" />
+                            <span>Pinned Message</span>
+                          </div>
+                        )}
                         {message.fileUrl && (
                           <div className="mb-2">
                             {message.type === 'image' ? (
@@ -217,6 +237,19 @@ export const MessageList: React.FC<MessageListProps> = ({
                             <DropdownMenuItem onClick={() => handleReplyToMessage(message)}>
                               <Reply className="h-4 w-4 mr-2" />
                               Reply
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleTogglePin(message.id, !message.isPinned)}>
+                              {message.isPinned ? (
+                                <>
+                                  <PinOff className="h-4 w-4 mr-2" />
+                                  Unpin
+                                </>
+                              ) : (
+                                <>
+                                  <Pin className="h-4 w-4 mr-2" />
+                                  Pin
+                                </>
+                              )}
                             </DropdownMenuItem>
                             <EmojiPickerComponent onEmojiSelect={(emoji) => handleReaction(message.id, emoji)} />
                           </DropdownMenuContent>

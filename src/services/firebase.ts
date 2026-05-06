@@ -69,7 +69,9 @@ export {
   markGroupMessagesAsRead, 
   getUnreadMessageCount, 
   markMessageAsRead, 
-  markMultipleMessagesAsRead 
+  markMultipleMessagesAsRead,
+  togglePinGroupMessage,
+  deleteGroupMessage 
 } from './groups';
 
 // === Direct Messages ===
@@ -91,7 +93,8 @@ export {
   setTypingIndicator, 
   subscribeToTypingIndicators,
   subscribeToConversations,
-  resetUnreadCount
+  resetUnreadCount,
+  togglePinDirectMessage
 } from './directMessages';
 
 // === File Storage ===

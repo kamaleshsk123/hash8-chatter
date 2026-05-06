@@ -374,7 +374,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                   }`}
                   onClick={() => {
                     if (onGroupSelect) {
-                      onGroupSelect(group, org);
+                      onGroupSelect(group, { ...org, userRole: orgDetails.role });
                     }
                     // Close sidebar on mobile when selecting a group
                     if (isMobile && setSidebarOpen) {

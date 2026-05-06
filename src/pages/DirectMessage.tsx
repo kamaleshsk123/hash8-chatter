@@ -17,6 +17,7 @@ import {
   setTypingIndicator,
   resetUnreadCount,
   subscribeToTypingIndicators,
+  togglePinDirectMessage,
   db
 } from "@/services/firebase";
 import { offlineCache } from "@/services/offlineCache";
@@ -72,6 +73,9 @@ interface Message {
   };
   deleted?: boolean;
   hasPendingWrites?: boolean; // Added for offline support
+  isPinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: Date;
 }
 
 export const DirectMessage: React.FC<DirectMessageProps> = ({
@@ -366,79 +370,114 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
     setIsSending(true);
     
-    const messageData = {
-      text: newMessage.trim(),
-      senderId: user.uid,
-      senderName: user.name || 'Unknown User',
-      senderAvatar: user.avatar || '',
-      type: 'text' as const,
-      replyTo: replyToMessage ? {
-        messageId: replyToMessage.id,
-        text: replyToMessage.text,
-        senderName: replyToMessage.senderName
-      } : undefined
-    };
-    
     try {
-      // Clear input immediately for better UX
-      setNewMessage('');
-      setReplyToMessage(null);
-      
-      // Use hybrid messaging system
-      const result = await hybridMessaging.sendMessage(
-        conversationId,
-        messageData,
-        isOnline
-      );
+      if (editingMessageId) {
+        // Handle edit mode
+        await editDirectMessage(conversationId, editingMessageId, newMessage.trim(), user.uid);
+        setEditingMessageId(null);
+        setEditingText('');
+        setNewMessage('');
+        toast({
+          title: "Message updated",
+          description: "Your message has been edited successfully."
+        });
+      } else {
+        // Handle new message mode
+        const messageData = {
+          text: newMessage.trim(),
+          senderId: user.uid,
+          senderName: user.name || 'Unknown User',
+          senderAvatar: user.avatar || '',
+          type: 'text' as const,
+          replyTo: replyToMessage ? {
+            messageId: replyToMessage.id,
+            text: replyToMessage.text,
+            senderName: replyToMessage.senderName
+          } : undefined
+        };
+        
+        // Clear input immediately for better UX
+        setNewMessage('');
+        setReplyToMessage(null);
+        
+        // Use hybrid messaging system
+        const result = await hybridMessaging.sendMessage(
+          conversationId,
+          messageData,
+          isOnline
+        );
 
-      // Show appropriate feedback based on transport used
-      if (result.transport === 'bluetooth') {
-        toast({
-          title: "Sent via Bluetooth",
-          description: `Message sent to ${bluetoothStatus.deviceCount} nearby device(s). Will sync when online.`,
-          duration: 4000,
-        });
-      } else if (result.transport === 'cache') {
-        toast({
-          title: "Message Queued",
-          description: isOnline 
-            ? "Message cached due to connection issues."
-            : "Message will be sent when you're back online.",
-          duration: 3000,
-        });
-      }
-      // Firebase messages don't need toast (normal behavior)
-      
-      // Clear typing indicator if online
-      if (isOnline && typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-        try {
-          await setTypingIndicator(conversationId, user.uid, user.name || 'Unknown User', false);
-        } catch (error) {
-          console.log('Typing indicator error:', error);
+        // Show appropriate feedback based on transport used
+        if (result.transport === 'bluetooth') {
+          toast({
+            title: "Sent via Bluetooth",
+            description: `Message sent to ${bluetoothStatus.deviceCount} nearby device(s). Will sync when online.`,
+            duration: 4000,
+          });
+        } else if (result.transport === 'cache') {
+          toast({
+            title: "Message Queued",
+            description: isOnline 
+              ? "Message cached due to connection issues."
+              : "Message will be sent when you're back online.",
+            duration: 3000,
+          });
+        }
+        
+        // Clear typing indicator if online
+        if (isOnline && typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          try {
+            await setTypingIndicator(conversationId, user.uid, user.name || 'Unknown User', false);
+          } catch (error) {
+            console.log('Typing indicator error:', error);
+          }
         }
       }
-      
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error in message action:', error);
       
       // Restore message on error
-      setNewMessage(messageData.text);
-      if (messageData.replyTo) {
-        setReplyToMessage({
-          id: messageData.replyTo.messageId,
-          text: messageData.replyTo.text,
-          senderName: messageData.replyTo.senderName
-        } as Message);
+      if (!editingMessageId) {
+        setNewMessage(newMessage.trim());
       }
       
       toast({
-        title: "Send Failed",
-        description: "Failed to send message. Please try again.",
+        title: "Action Failed",
+        description: editingMessageId ? "Failed to update message." : "Failed to send message.",
         variant: "destructive"
       });
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleTogglePin = async (messageId: string, isPinned: boolean) => {
+    if (!user) return;
+
+    // Skip pinning when offline
+    if (!isOnline) {
+      toast({
+        title: "Pin Unavailable",
+        description: "Message pinning requires an internet connection.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      await togglePinDirectMessage(conversationId, messageId, user.uid, isPinned);
+      toast({
+        title: isPinned ? "Message Pinned" : "Message Unpinned",
+        description: isPinned ? "The message has been pinned." : "The message has been unpinned."
+      });
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update pinned status",
+        variant: "destructive"
+      });
     }
   };
 
@@ -774,7 +813,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
   return (
     <div className="flex flex-col h-full w-full bg-background">
-      <DirectMessageHeader otherUser={otherUser} onClearChat={clearChat} />
+      <DirectMessageHeader otherUser={otherUser} onClearChat={clearChat} messages={messages} onTogglePin={handleTogglePin} />
       
       {/* Offline/Bluetooth Mode Indicator */}
       {(isOfflineMode || bluetoothStatus.enabled) && (
@@ -846,6 +885,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         handleReplyToMessage={handleReplyToMessage}
         handleReaction={handleReaction}
         handleReplyClick={handleReplyClick}
+        handleTogglePin={handleTogglePin}
       />
       {typingUsers.length > 0 && (
         <div className="px-4 py-2">
@@ -858,6 +898,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         newMessage={newMessage}
         isSending={isSending}
         editingMessageId={editingMessageId}
+        editingText={editingText}
         otherUser={otherUser}
         replyToMessage={replyToMessage}
         fileInputRef={fileInputRef}
