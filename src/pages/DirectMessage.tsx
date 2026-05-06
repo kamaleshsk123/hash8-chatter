@@ -12,6 +12,7 @@ import {
   sendDirectMessageWithFile,
   addMessageReaction,
   editDirectMessage,
+  deleteDirectMessage,
   softDeleteDirectMessage,
   setTypingIndicator,
   subscribeToTypingIndicators,
@@ -77,8 +78,8 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   otherUser,
   onBack
 }) => {
-  const { user } = useAuth();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isOnline, wasOffline } = useNetworkStatus();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -98,6 +99,54 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   const messageRefs = useRef<Record<string, HTMLDivElement>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearChat = async () => {
+    // Soft delete all messages in this conversation
+    if (!user) return;
+    
+    // Only proceed if there are messages to delete
+    const activeMessages = messages.filter((msg) => !msg.deleted);
+    if (activeMessages.length === 0) {
+      toast({
+        title: 'Chat is already empty',
+        description: 'There are no messages to clear.',
+      });
+      return;
+    }
+
+    try {
+      // Use a loading toast for large deletions
+      const isLargeChat = activeMessages.length > 10;
+      if (isLargeChat) {
+        toast({
+          title: 'Clearing chat...',
+          description: `Deleting ${activeMessages.length} messages. This may take a moment.`,
+        });
+      }
+
+      const deletePromises = activeMessages.map((msg) => 
+        deleteDirectMessage(conversationId, msg.id, user.uid, true)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      setMessages([]);
+      // Remove cached messages for this conversation
+      offlineCache.removeCachedConversation(conversationId);
+      
+      toast({
+        title: 'Chat cleared',
+        description: 'All messages have been removed. They can be recovered within 6 months.',
+      });
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      toast({
+        title: 'Error clearing chat',
+        description: 'Something went wrong while trying to clear the messages. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -716,7 +765,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
   return (
     <div className="flex flex-col h-full w-full bg-background">
-      <DirectMessageHeader otherUser={otherUser} />
+      <DirectMessageHeader otherUser={otherUser} onClearChat={clearChat} />
       
       {/* Offline/Bluetooth Mode Indicator */}
       {(isOfflineMode || bluetoothStatus.enabled) && (

@@ -5,14 +5,9 @@ import { syncService } from './syncService';
 
 // Fallback UUID generator for insecure contexts (like accessing via IP over HTTP)
 function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  // In secure contexts, `crypto.randomUUID` is guaranteed to exist.
+  // If it is unavailable (unlikely in modern browsers), this will throw.
+  return (crypto as any).randomUUID();
 }
 
 type MessageTransport = 'firebase' | 'bluetooth' | 'cache';

@@ -438,10 +438,18 @@ export const editDirectMessage = async (
 export const deleteDirectMessage = async (
   conversationId: string,
   messageId: string,
-  userId: string
+  userId: string,
+  isClearChat: boolean = false
 ) => {
   try {
     const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
+    
+    // Check if user is a participant of the conversation
+    const participants = conversationId.split('_');
+    if (!participants.includes(userId)) {
+      throw new Error('Unauthorized to delete messages in this conversation');
+    }
+
     const messageDoc = await getDoc(messageRef);
     
     if (!messageDoc.exists()) {
@@ -450,8 +458,8 @@ export const deleteDirectMessage = async (
     
     const messageData = messageDoc.data();
     
-    // Only allow sender to delete their own messages
-    if (messageData.senderId !== userId) {
+    // If not a clear chat operation, only allow sender to delete their own messages
+    if (!isClearChat && messageData.senderId !== userId) {
       throw new Error('Unauthorized to delete this message');
     }
     
@@ -471,21 +479,30 @@ export const deleteDirectMessage = async (
 export const softDeleteDirectMessage = async (
   conversationId: string,
   messageId: string,
-  userId: string
+  userId: string,
+  isClearChat: boolean = false
 ) => {
   try {
     const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
-    const messageDoc = await getDoc(messageRef);
     
-    if (!messageDoc.exists()) {
-      throw new Error('Message not found');
+    // Check if user is a participant of the conversation
+    const participants = conversationId.split('_');
+    if (!participants.includes(userId)) {
+      throw new Error('Unauthorized to delete messages in this conversation');
     }
-    
-    const messageData = messageDoc.data();
-    
-    // Only allow sender to delete their own messages
-    if (messageData.senderId !== userId) {
-      throw new Error('Unauthorized to delete this message');
+
+    // If it's a clear chat operation, we don't need to check if the user is the sender
+    if (!isClearChat) {
+      const messageDoc = await getDoc(messageRef);
+      if (!messageDoc.exists()) {
+        throw new Error('Message not found');
+      }
+      const messageData = messageDoc.data();
+      
+      // For individual soft-delete, only allow sender
+      if (messageData.senderId !== userId) {
+        throw new Error('Unauthorized to delete this message');
+      }
     }
     
     await updateDoc(messageRef, {

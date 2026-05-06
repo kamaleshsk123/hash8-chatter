@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "lint:rules": "firebase deploy --only firestore:rules --dry-run",
     "preview": "vite preview",
     "firebase:login": "firebase login",
     "firebase:deploy": "firebase deploy --only firestore"
