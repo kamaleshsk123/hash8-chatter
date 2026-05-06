@@ -372,22 +372,30 @@ export const addMessageReaction = async (
       reactions = {};
     }
     
-    // Initialize emoji array if it doesn't exist
-    if (!reactions[emoji] || !Array.isArray(reactions[emoji])) {
-      reactions[emoji] = [];
+    // Find if the user has already reacted with ANY emoji
+    let existingEmoji: string | null = null;
+    
+    for (const e in reactions) {
+      if (Array.isArray(reactions[e])) {
+        const index = reactions[e].findIndex((r: any) => r && r.userId === userId);
+        if (index >= 0) {
+          existingEmoji = e;
+          // Remove the existing reaction
+          reactions[e].splice(index, 1);
+          if (reactions[e].length === 0) {
+            delete reactions[e];
+          }
+          break; // User can only have one reaction, so we can stop searching
+        }
+      }
     }
     
-    // Check if user already reacted with this emoji
-    const existingReactionIndex = reactions[emoji].findIndex((r: any) => r && r.userId === userId);
-    
-    if (existingReactionIndex >= 0) {
-      // Remove reaction if already exists
-      reactions[emoji].splice(existingReactionIndex, 1);
-      if (reactions[emoji].length === 0) {
-        delete reactions[emoji];
+    // If the new emoji is different from the one we just removed (or there was no reaction), add it
+    if (existingEmoji !== emoji) {
+      if (!reactions[emoji] || !Array.isArray(reactions[emoji])) {
+        reactions[emoji] = [];
       }
-    } else {
-      // Add new reaction
+      
       reactions[emoji].push({
         userId,
         userName,
