@@ -39,6 +39,8 @@ import {
   getUserOrganizations,
   getOrganizationMemberCount,
   getUserRoleInOrganization,
+  subscribeToConversations,
+  getUsersByIds
 } from "@/services/firebase";
 import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
@@ -57,17 +59,17 @@ interface ChatSidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   handleSignOut: () => void;
-  mockChats: any[];
   selectedChat: any;
   handleSelectChat: (chat: any) => void;
   onFeedClick: () => void;
-  onOrgFeedClick?: () => void;
-  view: "chat" | "feed" | "your-feed";
+  onOrgFeedClick?: (org: any) => void;
+  view: "chat" | "feed" | "your-feed" | "direct_message";
   onOrganizationSettingsClick: (org: any) => void;
   onOrganizationUpdate?: (updatedOrg: any) => void;
   refreshOrganizationsRef?: React.MutableRefObject<() => void>;
   onGroupSelect?: (group: any, org: any) => void;
   selectedGroupId?: string;
+  urlOrgId?: string | null;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -76,7 +78,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   sidebarOpen,
   setSidebarOpen,
   handleSignOut,
-  mockChats,
   selectedChat,
   handleSelectChat,
   onFeedClick,
@@ -87,6 +88,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   refreshOrganizationsRef,
   onGroupSelect,
   selectedGroupId,
+  urlOrgId,
 }) => {
   const { toast } = useToast();
   const { actualTheme, setTheme } = useTheme();
@@ -111,6 +113,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       { role: string | null; memberCount: number | null; loading: boolean }
     >
   >({});
+  const [unreadConversations, setUnreadConversations] = useState<any[]>([]);
+  const [chatProfiles, setChatProfiles] = useState<Record<string, any>>({});
+  const [chatsLoading, setChatsLoading] = useState(true);
 
   // Function to refresh organizations
   const refreshOrganizations = () => {
@@ -186,6 +191,43 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       });
     });
   }, [orgs, user.uid]);
+  
+  // Subscribe to unread conversations across all orgs
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    setChatsLoading(true);
+    const unsubscribe = subscribeToConversations(user.uid, async (conversations) => {
+      // Filter conversations that have unread messages for the current user
+      const unread = conversations.filter(conv => 
+        conv.unreadCount && conv.unreadCount[user.uid] !== undefined && conv.unreadCount[user.uid] > 0
+      );
+      
+      setUnreadConversations(unread);
+      
+      // Fetch profiles for the other user in each unread conversation
+      const otherUserIds = unread.map(conv => {
+        const participants = conv.id.split('_');
+        return participants.find(id => id !== user.uid);
+      }).filter(Boolean) as string[];
+      
+      if (otherUserIds.length > 0) {
+        try {
+          const profiles = await getUsersByIds(otherUserIds);
+          const profileMap: Record<string, any> = {};
+          profiles.forEach((p: any) => {
+            profileMap[p.userId] = p;
+          });
+          setChatProfiles(profileMap);
+        } catch (error) {
+          console.error("Error fetching chat profiles:", error);
+        }
+      }
+      setChatsLoading(false);
+    });
+    
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   // Add color palette and hash function
   const AVATAR_COLORS = [
@@ -274,6 +316,22 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     type: "org" | "chat";
     id: string;
   } | null>(null);
+
+  // Handle URL-based organization selection
+  useEffect(() => {
+    if (urlOrgId && orgs.length > 0 && view === 'feed') {
+      const urlOrg = orgs.find(org => org.id === urlOrgId);
+      if (urlOrg && (!selectedSidebarItem || selectedSidebarItem.id !== urlOrgId)) {
+        setSelectedSidebarItem({ type: 'org', id: urlOrgId });
+        
+        // If organization data is available, trigger the feed navigation
+        const details = (orgDetails[urlOrgId] as any) || {};
+        if (onOrgFeedClick && urlOrg.name) {
+          onOrgFeedClick({ ...urlOrg, userRole: details.role });
+        }
+      }
+    }
+  }, [urlOrgId, orgs, orgDetails, view, selectedSidebarItem, onOrgFeedClick]);
 
   // Mock data for groups and members (for demo)
   const mockGroups = [
@@ -407,6 +465,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           }}
           onBack={() => {
             setSelectedSidebarItem(null);
+          }}
+          onYourFeedClick={() => {
+            // Clear organization selection and navigate to Your Feed
+            setSelectedSidebarItem(null);
+            onFeedClick();
           }}
           onSettingsClick={() => {
             const org = orgs.find((o) => o.id === selectedSidebarItem.id);
@@ -558,35 +621,67 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             </h2>
           </div>
           <div className="space-y-1">
-            {mockChats.map((chat) => (
-              <div
-                key={chat.id}
-                className={cn(
-                  "flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors",
-                  selectedSidebarItem?.type === "chat" &&
-                    selectedSidebarItem?.id === chat.id &&
-                    "bg-muted"
-                )}
-                onClick={() =>
-                  setSelectedSidebarItem({ type: "chat", id: chat.id })
-                }>
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={chat.avatar} alt={chat.name} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {chat.name.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm text-foreground truncate">
-                    {chat.name}
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {chat.lastMessage}
-                  </div>
-                </div>
-                {/* Optionally, show time or unread badge */}
+            {chatsLoading ? (
+              <div className="px-4 py-2 text-xs text-muted-foreground italic">
+                Loading chats...
               </div>
-            ))}
+            ) : unreadConversations.length === 0 ? (
+              <div className="px-4 py-2 text-xs text-muted-foreground italic">
+                No new Messages
+              </div>
+            ) : (
+              unreadConversations.map((chat) => {
+                const otherUserId = chat.id.split('_').find(id => id !== user.uid);
+                const profile = chatProfiles[otherUserId || ''] || {};
+                const name = profile.displayName || otherUserId || 'Unknown User';
+                const avatar = profile.avatar || '';
+                const lastMsg = chat.lastMessage?.text || 'New message';
+                
+                return (
+                  <div
+                    key={chat.id}
+                    className={cn(
+                      "flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors mx-2",
+                      selectedSidebarItem?.type === "chat" &&
+                        selectedSidebarItem?.id === chat.id &&
+                        "bg-muted"
+                    )}
+                    onClick={() => {
+                      setSelectedSidebarItem({ type: "chat", id: chat.id });
+                      if (onGroupSelect) {
+                        onGroupSelect({
+                          id: chat.id,
+                          name: `Direct Message with ${name}`,
+                          type: 'direct_message',
+                          otherUser: {
+                            userId: otherUserId,
+                            name: name,
+                            avatar: avatar
+                          }
+                        }, null);
+                      }
+                    }}>
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={avatar} alt={name} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm text-foreground truncate flex items-center justify-between">
+                        <span className="truncate">{name}</span>
+                        <div className="bg-primary text-primary-foreground text-[10px] font-bold min-w-[16px] h-[16px] rounded-full flex items-center justify-center px-1">
+                          {chat.unreadCount[user.uid]}
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {lastMsg}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -642,10 +737,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   variant="default"
                   className="flex-1"
                   onClick={() => {
+                    const org = orgs.find((o) => o.id === pendingOrgSwitch);
+                    const details = (orgDetails[pendingOrgSwitch] as any) || {};
+                    
                     setSelectedSidebarItem({
                       type: "org",
                       id: pendingOrgSwitch,
                     });
+                    
+                    // Trigger navigation to organization feed
+                    if (org && onOrgFeedClick) {
+                      onOrgFeedClick({ ...org, userRole: details.role });
+                    }
+                    
                     setPendingOrgSwitch(null);
                   }}>
                   Switch

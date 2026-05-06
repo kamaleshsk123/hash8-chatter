@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,34 +158,12 @@ const mockMessages: Message[] = [
   },
 ];
 
-// Add mock chats data
-const mockChats = [
-  {
-    id: "chat1",
-    name: "Alice Johnson",
-    avatar: "",
-    lastMessage: "See you at the meeting!",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: "chat2",
-    name: "Bob Smith",
-    avatar: "",
-    lastMessage: "Thanks for the update.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 15),
-  },
-  {
-    id: "chat3",
-    name: "Carol Davis",
-    avatar: "",
-    lastMessage: "Can you review the document?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-  },
-];
 
 const Chat = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Early return if user is not available
   if (!user) {
@@ -198,8 +177,19 @@ const Chat = () => {
     );
   }
   // Group and chat state
-  const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
-  const [selectedOrg, setSelectedOrg] = useState<any | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<any | null>(() => {
+    const urlGroupId = searchParams.get('groupId');
+    const urlView = searchParams.get('view');
+    // If it's a direct message, the groupId is the conversationId
+    if (urlView === 'direct_message' && urlGroupId) {
+      return { id: urlGroupId, type: 'direct_message' };
+    }
+    return urlGroupId ? { id: urlGroupId } : null;
+  });
+  const [selectedOrg, setSelectedOrg] = useState<any | null>(() => {
+    const urlOrgId = searchParams.get('orgId');
+    return urlOrgId ? { id: urlOrgId } : null;
+  });
   const [selectedChat, setSelectedChat] = useState<any | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [directMessages, setDirectMessages] = useState<{
@@ -223,12 +213,32 @@ const Chat = () => {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">("chat");
+  // Initialize view from URL parameters or default to "your-feed"
+  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">(() => {
+    const urlView = searchParams.get('view');
+    if (urlView && ['chat', 'feed', 'your-feed', 'direct_message'].includes(urlView)) {
+      return urlView as "chat" | "feed" | "your-feed" | "direct_message";
+    }
+    return "your-feed";
+  });
   const [showOrganizationSettings, setShowOrganizationSettings] =
     useState(false);
   const [selectedOrgForSettings, setSelectedOrgForSettings] =
     useState<any>(null);
   const refreshOrganizationsRef = useRef<() => void>(() => {});
+
+  // Function to update URL with current state
+  const updateURL = (newView: string, orgId?: string, groupId?: string) => {
+    const params = new URLSearchParams();
+    params.set('view', newView);
+    if (orgId) {
+      params.set('orgId', orgId);
+    }
+    if (groupId) {
+      params.set('groupId', groupId);
+    }
+    setSearchParams(params);
+  };
 
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isLeaveGroupDialogOpen, setIsLeaveGroupDialogOpen] = useState(false);
@@ -260,6 +270,43 @@ const Chat = () => {
   useEffect(() => {
     setSidebarOpen(!isMobile);
   }, [isMobile]);
+
+  // Fetch group/conversation details if initialized from URL with only an ID
+  useEffect(() => {
+    if (selectedGroup && !selectedGroup.name && !selectedGroup.type) {
+      const fetchDetails = async () => {
+        try {
+          // Check if it's a direct message (conversation ID usually has an underscore)
+          if (selectedGroup.id.includes('_')) {
+            const participants = selectedGroup.id.split('_');
+            const otherUserId = participants.find(id => id !== user?.uid);
+            if (otherUserId) {
+              const profiles = await getUsersByIds([otherUserId]);
+              if (profiles && profiles.length > 0) {
+                const profile = profiles[0];
+                setSelectedGroup({
+                  id: selectedGroup.id,
+                  name: `Direct Message with ${profile.displayName || otherUserId}`,
+                  type: 'direct_message',
+                  otherUser: {
+                    userId: otherUserId,
+                    name: profile.displayName || otherUserId,
+                    avatar: profile.avatar || ""
+                  },
+                  avatar: profile.avatar || "",
+                  members: participants
+                });
+                setView("direct_message");
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error hydrating group details:", err);
+        }
+      };
+      fetchDetails();
+    }
+  }, [selectedGroup, selectedOrg, user?.uid]);
 
   // Real-time message subscription for selected group
   useEffect(() => {
@@ -323,7 +370,7 @@ const Chat = () => {
           const filteredTyping = typingStatuses.filter(
             (status) => status.userId !== user?.uid
           );
-          setTypingUsers(filteredTyping);
+          setTypingUsers(filteredTyping as TypingStatus[]);
         }
       );
     } else {
@@ -396,6 +443,18 @@ const Chat = () => {
       }
     };
   }, [newMessage, selectedGroup, selectedOrg, user, isTyping]);
+
+  // Handle URL-based organization loading
+  useEffect(() => {
+    const urlOrgId = searchParams.get('orgId');
+    const urlView = searchParams.get('view');
+    
+    if (urlOrgId && urlView === 'feed' && !selectedOrg?.name) {
+      // Need to load organization data from the sidebar organizations
+      // This will be handled by the ChatSidebar's organization list
+      console.log('Loading organization from URL:', urlOrgId);
+    }
+  }, [searchParams, selectedOrg]);
 
   // Fetch group members and subscribe to their statuses
   useEffect(() => {
@@ -543,12 +602,14 @@ const Chat = () => {
       setSelectedOrg(null);
       setSelectedChat(null);
       setView("direct_message");
+      updateURL("direct_message", undefined, group.id);
     } else {
       // Handle regular group selection
       setSelectedGroup(group);
       setSelectedOrg(org);
       setSelectedChat(null);
       setView("chat");
+      updateURL("chat", org?.id, group?.id);
     }
     
     if (isMobile) setSidebarOpen(false);
@@ -592,7 +653,6 @@ const Chat = () => {
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleSignOut={handleSignOut}
-              mockChats={mockChats}
               selectedChat={selectedChat}
               handleSelectChat={handleSelectChat}
               onFeedClick={() => {
@@ -602,6 +662,7 @@ const Chat = () => {
                   setSelectedOrgForSettings(null);
                 }
                 setView("your-feed");
+                updateURL("your-feed");
                 if (isMobile) setSidebarOpen(false);
               }}
               onOrgFeedClick={(org) => {
@@ -612,6 +673,7 @@ const Chat = () => {
                 }
                 setSelectedOrg(org);
                 setView("feed");
+                updateURL("feed", org.id);
                 if (isMobile) setSidebarOpen(false);
               }}
               view={view}
@@ -623,6 +685,7 @@ const Chat = () => {
               refreshOrganizationsRef={refreshOrganizationsRef}
               onGroupSelect={handleSelectGroup}
               selectedGroupId={showOrganizationSettings || view === "feed" || view === "your-feed" ? null : selectedGroup?.id}
+              urlOrgId={searchParams.get('orgId')}
             />
           </>
         )}
@@ -650,6 +713,7 @@ const Chat = () => {
               setSidebarOpen(true);
             } else {
               setView("chat");
+              updateURL("chat");
             }
           }}
           org={selectedOrg}
@@ -661,6 +725,7 @@ const Chat = () => {
               setSidebarOpen(true);
             } else {
               setView("chat");
+              updateURL("chat");
             }
           }}
         />
@@ -680,9 +745,9 @@ const Chat = () => {
           />
         </ErrorBoundary>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0 ">
+        <div className="flex-1 flex flex-col min-h-0 bg-background">
           {/* Chat Header */}
-          <div className="sticky top-0 z-20 bg-chat-header shadow-header border-b border-border px-2 sm:px-4 lg:px-0 py-2 flex items-center justify-between">
+          <div className="sticky top-0 z-20 bg-chat-header shadow-header border-b border-border px-2 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* Sidebar open button for mobile */}
               <Button
@@ -895,7 +960,7 @@ const Chat = () => {
           </div>
           {/* Main chat scrollable area */}
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto bg-gradient-chat px-2 sm:px-4 lg:px-0">
+            <div className="flex-1 overflow-y-auto bg-background px-2 sm:px-4 lg:px-0">
               <div className="py-4 px-2 w-full">
                 {messagesLoading ? (
                   <div className="flex items-center justify-center h-32">

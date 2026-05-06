@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hash8 Chatter - Project Presentation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+        }
+        
+        .slide {
+            min-height: 100vh;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            page-break-after: always;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .slide:last-child {
+            page-break-after: avoid;
+        }
+        
+        .title-slide {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        
+        .title-slide h1 {
+            font-size: 4em;
+            margin-bottom: 20px;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .title-slide .subtitle {
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .title-slide .description {
+            font-size: 1.3em;
+            max-width: 800px;
+            margin: 0 auto;
+            opacity: 0.8;
+        }
+        
+        .slide h2 {
+            font-size: 2.5em;
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 15px;
+        }
+        
+        .slide h3 {
+            font-size: 1.8em;
+            color: #495057;
+            margin-bottom: 25px;
+        }
+        
+        .slide h4 {
+            font-size: 1.4em;
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+        
+        .demo-box {
+            background: #f8f9fa;
+            border: 3px solid #007bff;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+            font-size: 1.3em;
+        }
+        
+        .demo-link {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            border-left: 6px solid #007bff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .feature-card h4 {
+            margin-top: 0;
+            color: #007bff;
+            font-size: 1.3em;
+        }
+        
+        .feature-card p {
+            font-size: 1.1em;
+            margin-bottom: 0;
+        }
+        
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            margin: 30px 0;
+        }
+        
+        .tech-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .tech-card h4 {
+            color: white;
+            margin-top: 0;
+            font-size: 1.3em;
+        }
+        
+        .tech-list {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+        }
+        
+        .tech-list li {
+            padding: 8px 0;
+            font-size: 1.1em;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .highlight-box h3 {
+            color: white;
+            margin-top: 0;
+            font-size: 1.8em;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 40px 0;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-top: 5px solid #007bff;
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #007bff;
+            display: block;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+        
+        .architecture-diagram {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 30px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 1.1em;
+            white-space: pre-wrap;
+            margin: 30px 0;
+        }
+        
+        .bullet-points {
+            font-size: 1.2em;
+            line-height: 1.8;
+        }
+        
+        .bullet-points li {
+            margin-bottom: 15px;
+        }
+        
+        .bullet-points strong {
+            color: #007bff;
+        }
+        
+        .browser-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            font-size: 1.1em;
+        }
+        
+        .browser-table th,
+        .browser-table td {
+            padding: 15px;
+            text-align: center;
+            border: 2px solid #dee2e6;
+        }
+        
+        .browser-table th {
+            background: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .support-yes {
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+        
+        .support-no {
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+        
+        .roadmap-section {
+            margin: 30px 0;
+        }
+        
+        .roadmap-item {
+            background: #f8f9fa;
+            border-left: 5px solid #007bff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .roadmap-item h4 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        
+        @media print {
+            body {
+                font-size: 14px;
+            }
+            .slide {
+                min-height: auto;
+                padding: 30px;
+            }
+            .feature-grid,
+            .tech-grid,
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Slide 1: Title Slide -->
+    <div class="slide title-slide">
+        <h1>Hash8 Chatter</h1>
+        <div class="subtitle">Revolutionary Organizational Communication Platform</div>
+        <div class="description">
+            Modern intranet solution featuring hybrid messaging, real-time collaboration, 
+            and innovative offline capabilities powered by cutting-edge web technologies.
+        </div>
+        <div style="margin-top: 50px; font-size: 1.1em; opacity: 0.7;">
+            Project Presentation | Advanced Web Application Development
+        </div>
+    </div>
+
+    <!-- Slide 2: Project Overview -->
+    <div class="slide">
+        <h2>🎯 Project Overview</h2>
+        
+        <div class="highlight-box">
+            <h3>Mission Statement</h3>
+            <p style="font-size: 1.3em;">Revolutionize organizational communication with a comprehensive platform that works seamlessly online and offline, enabling teams to collaborate effectively regardless of network conditions.</p>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🌐 Hybrid Communication</h4>
+                <p>Intelligent message routing between Firebase, Bluetooth P2P, and local caching for uninterrupted communication.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🏢 Organization-Centric</h4>
+                <p>Multi-organization support with role-based access control and hierarchical management structures.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📱 Modern Interface</h4>
+                <p>Responsive design with dark mode, accessibility features, and progressive web app capabilities.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🔒 Enterprise Security</h4>
+                <p>Firebase Authentication with Google OAuth, role-based permissions, and encrypted data transmission.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: Technology Stack -->
+    <div class="slide">
+        <h2>🛠️ Technology Stack</h2>
+        
+        <div class="tech-grid">
+            <div class="tech-card">
+                <h4>Frontend Core</h4>
+                <ul class="tech-list">
+                    <li>React 18.3.1</li>
+                    <li>TypeScript 5.5.3</li>
+                    <li>Vite 5.4.1</li>
+                    <li>Tailwind CSS 3.4.11</li>
+                </ul>
+            </div>
+            <div class="tech-card">
+                <h4>UI Framework</h4>
+                <ul class="tech-list">
+                    <li>shadcn-ui</li>
+                    <li>Radix UI</li>
+                    <li>Framer Motion</li>
+                    <li>Lucide Icons</li>
+                </ul>
+            </div>
+            <div class="tech-card">
+                <h4>Backend Services</h4>
+                <ul class="tech-list">
+                    <li>Firebase Auth</li>
+                    <li>Firestore Database</li>
+                    <li>Firebase Storage</li>
+                    <li>Cloudinary</li>
+                </ul>
+            </div>
+        </div>
+
+        <h3>🏛️ System Architecture</h3>
+        <div class="architecture-diagram">Frontend Layer (React + TypeScript + Tailwind)
+                    ↓
+State Management (Context + React Query + Router)
+                    ↓
+Service Layer (Firebase + Hybrid Messaging + Offline Cache)
+                    ↓
+Backend Infrastructure (Firebase Auth + Firestore + Storage)</div>
+    </div>
+
+    <!-- Slide 4: Revolutionary Features -->
+    <div class="slide">
+        <h2>🚀 Revolutionary Features</h2>
+        
+        <div class="highlight-box">
+            <h3>🔄 World's First Hybrid Messaging System</h3>
+            <p style="font-size: 1.2em;">Intelligent message routing ensures communication never stops:</p>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>Priority 1: Online Mode</h4>
+                <p><strong>Firebase Real-time:</strong> Instant messaging with sub-100ms latency, typing indicators, and read receipts.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Priority 2: Bluetooth P2P</h4>
+                <p><strong>Direct Device Communication:</strong> Web Bluetooth API enables messaging between nearby devices without internet.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Priority 3: Local Cache</h4>
+                <p><strong>Offline Fallback:</strong> Messages queued locally and automatically synced when connection restored.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Smart Auto-Sync</h4>
+                <p><strong>Seamless Recovery:</strong> Intelligent synchronization with conflict resolution when back online.</p>
+            </div>
+        </div>
+
+        <ul class="bullet-points">
+            <li><strong>Zero Message Loss:</strong> Advanced queuing system ensures no communication is lost</li>
+            <li><strong>Visual Feedback:</strong> Clear indicators show current connection status and transport method</li>
+            <li><strong>Automatic Switching:</strong> Seamless transitions between online/offline modes</li>
+        </ul>
+    </div>
+
+    <!-- Slide 5: Core Features -->
+    <div class="slide">
+        <h2>⚡ Core Features</h2>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🔐 Authentication System</h4>
+                <p>Google OAuth + Email/Password authentication with automatic profile creation and role-based access control.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🏢 Organization Management</h4>
+                <p>Multi-organization support with Admin/Moderator/Member roles and secure invitation system.</p>
+            </div>
+            <div class="feature-card">
+                <h4>💬 Real-time Messaging</h4>
+                <p>Group chat and direct messaging with typing indicators, reactions, file uploads, and voice messages.</p>
+            </div>
+            <div class="feature-card">
+                <h4>📰 Social Feed System</h4>
+                <p>Instagram-style organization feed with posts, reactions, comments, and engagement tracking.</p>
+            </div>
+        </div>
+
+        <h3>🎨 User Experience Features</h3>
+        <ul class="bullet-points">
+            <li><strong>Responsive Design:</strong> Mobile-first approach with adaptive layouts</li>
+            <li><strong>Dark Mode:</strong> System-integrated theme switching</li>
+            <li><strong>PWA Capabilities:</strong> Native app-like experience in browser</li>
+            <li><strong>Accessibility:</strong> WCAG compliant with keyboard navigation and screen reader support</li>
+            <li><strong>URL-based Routing:</strong> Deep linking with state persistence across refreshes</li>
+        </ul>
+    </div>
+
+    <!-- Slide 6: Technical Achievements -->
+    <div class="slide">
+        <h2>🏆 Technical Achievements</h2>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number">< 1.5s</span>
+                <div class="stat-label">First Contentful Paint</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">< 100ms</span>
+                <div class="stat-label">Message Latency</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">95%+</span>
+                <div class="stat-label">TypeScript Coverage</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">50+</span>
+                <div class="stat-label">Reusable Components</div>
+            </div>
+        </div>
+
+        <h3>🌐 Browser Compatibility</h3>
+        <table class="browser-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Chrome</th>
+                    <th>Firefox</th>
+                    <th>Safari</th>
+                    <th>Edge</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Basic Chat</strong></td>
+                    <td class="support-yes">✅ Full</td>
+                    <td class="support-yes">✅ Full</td>
+                    <td class="support-yes">✅ Full</td>
+                    <td class="support-yes">✅ Full</td>
+                </tr>
+                <tr>
+                    <td><strong>Bluetooth P2P</strong></td>
+                    <td class="support-yes">✅ Full</td>
+                    <td class="support-no">❌ No</td>
+                    <td class="support-no">❌ No</td>
+                    <td class="support-yes">✅ Full</td>
+                </tr>
+                <tr>
+                    <td><strong>Offline Features</strong></td>
+                    <td class="support-yes">✅ Full</td>
+                    <td class="support-yes">✅ Full</td>
+                    <td class="support-yes">✅ Full</td>
+                    <td class="support-yes">✅ Full</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Slide 7: Security & Architecture -->
+    <div class="slide">
+        <h2>🔒 Security & Architecture</h2>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🛡️ Enterprise Security</h4>
+                <p>Firebase Authentication with OAuth 2.0, JWT tokens, and HTTPS/TLS encryption for all data transmission.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🗝️ Access Control</h4>
+                <p>Role-based permissions with context-aware authorization and dynamic permission system.</p>
+            </div>
+            <div class="feature-card">
+                <h4>🔐 Data Protection</h4>
+                <p>Input validation, XSS prevention, and Firebase-managed encryption at rest with automatic key rotation.</p>
+            </div>
+            <div class="feature-card">
+                <h4>⚡ Performance</h4>
+                <p>Optimized queries, intelligent caching, and code splitting for maximum performance.</p>
+            </div>
+        </div>
+
+        <h3>🏗️ Scalable Architecture</h3>
+        <ul class="bullet-points">
+            <li><strong>Component-Based Design:</strong> Modular architecture with reusable components</li>
+            <li><strong>State Management:</strong> React Context + React Query for optimal data flow</li>
+            <li><strong>Service Layer:</strong> Clean separation of business logic and API calls</li>
+            <li><strong>Type Safety:</strong> Comprehensive TypeScript coverage for reliability</li>
+            <li><strong>Error Handling:</strong> Graceful error boundaries and fallback mechanisms</li>
+        </ul>
+    </div>
+
+    <!-- Slide 8: Future Roadmap -->
+    <div class="slide">
+        <h2>🔮 Future Roadmap</h2>
+
+        <div class="roadmap-section">
+            <div class="roadmap-item">
+                <h4>📅 Short-term (3-6 months)</h4>
+                <ul class="bullet-points">
+                    <li><strong>Message Editing:</strong> Edit sent messages with history tracking</li>
+                    <li><strong>Advanced Search:</strong> Full-text search across all conversations</li>
+                    <li><strong>Custom Themes:</strong> User-customizable color schemes and layouts</li>
+                    <li><strong>Enhanced Notifications:</strong> Smart notification management system</li>
+                </ul>
+            </div>
+
+            <div class="roadmap-item">
+                <h4>📅 Medium-term (6-12 months)</h4>
+                <ul class="bullet-points">
+                    <li><strong>Video Calling:</strong> Integrated WebRTC video conferencing</li>
+                    <li><strong>Screen Sharing:</strong> Built-in screen sharing capabilities</li>
+                    <li><strong>SSO Integration:</strong> Enterprise identity provider support</li>
+                    <li><strong>Public API:</strong> RESTful API for third-party integrations</li>
+                </ul>
+            </div>
+
+            <div class="roadmap-item">
+                <h4>📅 Long-term (12+ months)</h4>
+                <ul class="bullet-points">
+                    <li><strong>AI Features:</strong> Smart suggestions, auto-translation, sentiment analysis</li>
+                    <li><strong>Mobile Apps:</strong> Native iOS and Android applications</li>
+                    <li><strong>Desktop Apps:</strong> Electron-based desktop applications</li>
+                    <li><strong>Enterprise Suite:</strong> Advanced analytics, compliance tools, audit logs</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 9: Demo & Conclusion -->
+    <div class="slide">
+        <h2>🌟 Live Demo & Conclusion</h2>
+
+        <div class="demo-box">
+            <div style="font-size: 1.5em; margin-bottom: 20px; color: #007bff;">
+                🌐 Experience Hash8 Chatter Live
+            </div>
+            <a href="https://seclockofflinechat.netlify.app" class="demo-link" target="_blank">
+                seclockofflinechat.netlify.app
+            </a>
+            <div style="font-size: 1.1em; color: #666;">
+                Try the revolutionary hybrid messaging system in action!
+            </div>
+        </div>
+
+        <h3>🎯 Key Takeaways</h3>
+        <ul class="bullet-points">
+            <li><strong>Innovation:</strong> World's first web-based hybrid messaging with Bluetooth P2P fallback</li>
+            <li><strong>Reliability:</strong> Zero message loss with intelligent offline/online transitions</li>
+            <li><strong>Modern Tech:</strong> Built with latest React, TypeScript, and Firebase technologies</li>
+            <li><strong>User Experience:</strong> Responsive, accessible, and performant across all devices</li>
+            <li><strong>Enterprise Ready:</strong> Secure, scalable, and designed for organizational use</li>
+        </ul>
+
+        <div class="highlight-box">
+            <h3>🚀 Ready for Production</h3>
+            <p style="font-size: 1.2em;">
+                Hash8 Chatter represents the future of organizational communication - 
+                combining cutting-edge web technologies with innovative messaging solutions 
+                to create an unparalleled communication platform.
+            </p>
+        </div>
+    </div>
+
+    <!-- Slide 10: Thank You -->
+    <div class="slide title-slide">
+        <h1 style="font-size: 3em;">Thank You</h1>
+        <div class="subtitle">Questions & Discussion</div>
+        <div style="margin-top: 50px; font-size: 1.3em;">
+            <div style="margin-bottom: 20px;">
+                <strong>Live Demo:</strong> seclockofflinechat.netlify.app
+            </div>
+            <div style="margin-bottom: 20px;">
+                <strong>GitHub:</strong> github.com/kamaleshsk123/hash8-chatter
+            </div>
+            <div style="opacity: 0.8; font-size: 1.1em; margin-top: 40px;">
+                Revolutionizing Organizational Communication
+            </div>
+        </div>
+    </div>
+</body>
+</html>

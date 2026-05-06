@@ -38,9 +38,9 @@ All colors MUST be HSL.
 
     /* Chat specific colors */
     --chat-bg: 220 13% 97%;
-    --chat-bubble-sent: 213 94% 68%;
+    --chat-bubble-sent: 199 100% 40%;
     --chat-bubble-sent-foreground: 0 0% 100%;
-    --chat-bubble-received: 0 0% 100%;
+    --chat-bubble-received: 210 20% 96%;
     --chat-bubble-received-foreground: 213 31% 9%;
     --chat-sidebar: 0 0% 100%;
     --chat-header: 0 0% 100%;
