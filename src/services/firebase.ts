@@ -89,7 +89,9 @@ export {
   deleteDirectMessage, 
   softDeleteDirectMessage, 
   setTypingIndicator, 
-  subscribeToTypingIndicators 
+  subscribeToTypingIndicators,
+  subscribeToConversations,
+  resetUnreadCount
 } from './directMessages';
 
 // === File Storage ===

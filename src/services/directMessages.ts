@@ -11,7 +11,8 @@ import {
   where,
   getDocs,
   serverTimestamp,
-  limit
+  limit,
+  increment
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { uploadFile, deleteFile } from './fileStorage';
@@ -64,7 +65,8 @@ export const createOrGetDirectMessage = async (userId1: string, userId2: string)
       participants: [userId1, userId2],
       createdAt: serverTimestamp(),
       lastActivity: serverTimestamp(),
-      lastMessage: null
+      lastMessage: null,
+      unreadCount: {}
     };
     
     await setDoc(conversationRef, conversationData);
@@ -110,9 +112,12 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
     
     await setDoc(messageRef, messageDoc);
     
-    // Update conversation's lastActivity and lastMessage
+    // Update conversation's lastActivity, lastMessage and unreadCount for recipient
     const conversationRef = doc(db, 'direct_messages', conversationId);
-    await updateDoc(conversationRef, {
+    const participants = conversationId.split('_');
+    const recipientId = participants.find(id => id !== messageData.senderId);
+
+    const updateData: any = {
       lastActivity: serverTimestamp(),
       lastMessage: {
         text: messageData.text,
@@ -120,7 +125,13 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
         senderName: messageData.senderName,
         timestamp: serverTimestamp()
       }
-    });
+    };
+
+    if (recipientId) {
+      updateData[`unreadCount.${recipientId}`] = increment(1);
+    }
+
+    await updateDoc(conversationRef, updateData);
     
     return messageId;
   } catch (error) {
@@ -330,9 +341,12 @@ export const sendDirectMessageWithFile = async (
     
     await setDoc(messageRef, messageDoc);
     
-    // Update conversation's lastActivity and lastMessage
+    // Update conversation's lastActivity, lastMessage and unreadCount for recipient
     const conversationRef = doc(db, 'direct_messages', conversationId);
-    await updateDoc(conversationRef, {
+    const participants = conversationId.split('_');
+    const recipientId = participants.find(id => id !== messageData.senderId);
+
+    const updateData: any = {
       lastActivity: serverTimestamp(),
       lastMessage: {
         text: messageData.text || (fileName ? `📎 ${fileName}` : 'File'),
@@ -341,7 +355,13 @@ export const sendDirectMessageWithFile = async (
         timestamp: serverTimestamp(),
         type: messageData.fileType || 'text'
       }
-    });
+    };
+
+    if (recipientId) {
+      updateData[`unreadCount.${recipientId}`] = increment(1);
+    }
+
+    await updateDoc(conversationRef, updateData);
   } catch (error) {
     console.error('Error sending message with file:', error);
     throw error;
@@ -567,5 +587,36 @@ export const subscribeToTypingIndicators = (
       }));
     
     onTypingChange(typingUsers);
+  });
+};
+
+// Reset unread count for a user in a conversation
+export const resetUnreadCount = async (conversationId: string, userId: string) => {
+  try {
+    const conversationRef = doc(db, 'direct_messages', conversationId);
+    await updateDoc(conversationRef, {
+      [`unreadCount.${userId}`]: 0
+    });
+  } catch (error) {
+    console.error('Error resetting unread count:', error);
+  }
+};
+
+// Subscribe to conversation updates for a user to track unread counts
+export const subscribeToConversations = (
+  userId: string,
+  onUpdate: (conversations: any[]) => void
+) => {
+  const q = query(
+    collection(db, 'direct_messages'),
+    where('participants', 'array-contains', userId)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const conversations = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    onUpdate(conversations);
   });
 };

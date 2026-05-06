@@ -21,7 +21,8 @@ import {
   subscribeToUserStatus,
   joinOrganization,
   createOrGetDirectMessage,
-  createOrGetDirectMessageOffline
+  createOrGetDirectMessageOffline,
+  subscribeToConversations
 } from "@/services/firebase";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 
@@ -74,6 +75,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   const [membersLoading, setMembersLoading] = useState(false);
   const [isNotMember, setIsNotMember] = useState(false);
   const [memberStatuses, setMemberStatuses] = useState<Record<string, any>>({});
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const roleOrder: { [key: string]: number } = {
     admin: 1,
@@ -228,6 +230,21 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
         setGroups(userInGroups);
       })
       .finally(() => setGroupsLoading(false));
+
+    // Subscribe to unread counts
+    const unsubscribeConversations = subscribeToConversations(userId, (conversations) => {
+      const counts: Record<string, number> = {};
+      conversations.forEach(conv => {
+        if (conv.unreadCount && conv.unreadCount[userId]) {
+          counts[conv.id] = conv.unreadCount[userId];
+        }
+      });
+      setUnreadCounts(counts);
+    });
+
+    return () => {
+      unsubscribeConversations();
+    };
   }, [org?.id, userId]);
 
   // Show not member message if user is not a member
@@ -459,6 +476,19 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                         {member.role ? `Role: ${member.role}` : "Member"}
                       </div>
                     </div>
+                    {/* Unread Badge */}
+                    {(() => {
+                      const conversationId = [userId, member.userId].sort().join('_');
+                      const count = unreadCounts[conversationId] || 0;
+                      if (count > 0) {
+                        return (
+                          <div className="bg-primary text-primary-foreground text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 animate-pulse shadow-sm">
+                            {count > 99 ? '99+' : count}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 );
               })

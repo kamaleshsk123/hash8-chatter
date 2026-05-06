@@ -15,6 +15,7 @@ import {
   deleteDirectMessage,
   softDeleteDirectMessage,
   setTypingIndicator,
+  resetUnreadCount,
   subscribeToTypingIndicators,
   db
 } from "@/services/firebase";
@@ -216,6 +217,9 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
                 );
                 
                 if (unreadMessages.length > 0) {
+                  // Reset conversation unread count
+                  resetUnreadCount(conversationId, user.uid);
+
                   unreadMessages.forEach(msg => {
                     markDirectMessageAsRead(
                       conversationId,
