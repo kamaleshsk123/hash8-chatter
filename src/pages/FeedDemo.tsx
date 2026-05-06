@@ -71,7 +71,6 @@ const tabLabels = {
 
 export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, org }) => {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [hasAddedTestPosts, setHasAddedTestPosts] = useState(false);
   
 
   const [loading, setLoading] = useState(true);
@@ -105,44 +104,23 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
 
   // Fetch posts from Firebase in real-time
   useEffect(() => {
-    const postsCol = collection(db, "posts");
+    if (!org?.id) {
+      setLoading(false);
+      return;
+    }
+
+    const postsCol = collection(db, `organizations/${org.id}/posts`);
     const q = query(postsCol, orderBy("timestamp", "desc"));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const postsData = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        timestamp: doc.data().timestamp.toDate(), // Convert Firebase Timestamp to Date object
+        timestamp: doc.data().timestamp?.toDate() || new Date(),
       })) as Post[];
 
       setPosts(postsData);
       setLoading(false);
-      
-      // Add test posts if no posts exist and we haven't added them yet
-      if (postsData.length === 0 && !hasAddedTestPosts) {
-        const testPosts: Post[] = [
-          {
-            id: 'test-admin-post',
-            user: { name: 'Test Admin', avatar: '', role: 'admin' },
-            text: '🔴 ADMIN POST - Moderators should NOT see delete button',
-            timestamp: new Date(),
-            reactions: {},
-            seenBy: [],
-            savedBy: []
-          },
-          {
-            id: 'test-member-post',
-            user: { name: 'Test Member', avatar: '', role: 'member' },
-            text: '🟢 MEMBER POST - Admins and Moderators should see delete button',
-            timestamp: new Date(),
-            reactions: {},
-            seenBy: [],
-            savedBy: []
-          }
-        ];
-        setPosts(testPosts);
-        setHasAddedTestPosts(true);
-      }
     }, (err) => {
       console.error("Error fetching posts:", err);
       setError("Failed to load posts.");
@@ -151,7 +129,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
 
     // Unsubscribe from the listener when the component unmounts
     return () => unsubscribe();
-  }, []);
+  }, [org?.id]);
 
   // Web: Show plus icon when AddPostInput is out of view
   useEffect(() => {
@@ -188,18 +166,19 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
   }, [showAddPostInput]);
 
   useEffect(() => {
+    if (!org?.id || !currentUser?.uid) return;
     posts.forEach(async (post) => {
-      if (!post.seenBy?.includes(currentUser)) {
+      if (!post.seenBy?.includes(currentUser.uid)) {
         try {
-          const postRef = doc(db, "posts", post.id);
+          const postRef = doc(db, `organizations/${org.id}/posts`, post.id);
           await updateDoc(postRef, {
-            seenBy: arrayUnion(currentUser),
+            seenBy: arrayUnion(currentUser.uid),
           });
           // Update local state after successful Firebase update
           setPosts((prev) =>
             prev.map((p) =>
               p.id === post.id
-                ? { ...p, seenBy: [...(p.seenBy || []), currentUser] }
+                ? { ...p, seenBy: [...(p.seenBy || []), currentUser.uid] }
                 : p
             )
           );
@@ -208,7 +187,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
         }
       }
     });
-  }, [posts, currentUser]); // Depend on posts and currentUser
+  }, [posts, currentUser?.uid, org?.id]); // Depend on posts, currentUser uid, and org
 
   useEffect(() => {
     const handleScroll = () => {
@@ -231,26 +210,30 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
   }, []);
 
   useEffect(() => {
+    if (!org?.id) return;
+    const unsubscribes: (() => void)[] = [];
     posts.forEach((post) => {
-      const commentsCol = collection(db, "posts", post.id, "comments");
+      const commentsCol = collection(db, `organizations/${org.id}/posts`, post.id, "comments");
       const q = query(commentsCol, orderBy("timestamp", "asc"));
 
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const commentsData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          timestamp: doc.data().timestamp.toDate(),
+          timestamp: doc.data().timestamp?.toDate() || new Date(),
         })) as Comment[];
         setComments((prev) => ({ ...prev, [post.id]: commentsData }));
       });
-
-      return () => unsubscribe();
+      unsubscribes.push(unsubscribe);
     });
-  }, [posts]);
+
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [posts, org?.id]);
 
   const handleNewPost = async (newPost: { text: string; image?: string }) => {
     if (!currentUser) return;
     try {
+      if (!org?.id) return;
       const postData = {
         user: {
           name: currentUser.name,
@@ -263,7 +246,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
         reactions: {},
         seenBy: [],
       };
-      const docRef = await addDoc(collection(db, "posts"), postData);
+      const docRef = await addDoc(collection(db, `organizations/${org.id}/posts`), postData);
       setPosts((prevPosts) => [
         {
           ...postData,
@@ -281,7 +264,8 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
   const toggleReaction = async (postId: string, emoji: string) => {
     if (!currentUser) return;
 
-    const postRef = doc(db, "posts", postId);
+    if (!org?.id) return;
+    const postRef = doc(db, `organizations/${org.id}/posts`, postId);
     const post = posts.find((p) => p.id === postId);
     if (!post) return;
 
@@ -317,7 +301,8 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
 
     try {
       // Delete the post from Firebase
-      await deleteDoc(doc(db, "posts", postToDelete));
+      if (!org?.id) return;
+      await deleteDoc(doc(db, `organizations/${org.id}/posts`, postToDelete));
 
       // Update local state
       setPosts((prev) => prev.filter((p) => p.id !== postToDelete));
@@ -349,11 +334,21 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
   });
 
   if (loading) {
-    return <div className="flex justify-center items-center h-full">Loading feed...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-chat">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+        <div className="text-muted-foreground font-medium">Loading feed...</div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="flex justify-center items-center h-full text-red-500">Error: {error}</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-chat">
+        <div className="text-red-500 font-medium mb-2">Error loading feed</div>
+        <div className="text-muted-foreground text-sm">{error}</div>
+      </div>
+    );
   }
 
   return (
@@ -535,7 +530,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
                               variant="ghost"
                               size="sm"
                               onClick={() => toggleReaction(post.id, emoji)}
-                              className={`h-6 px-2 text-xs ${(users as string[]).includes(currentUser)
+                              className={`h-6 px-2 text-xs ${(users as string[]).includes(currentUser?.name)
                                 ? 'bg-primary/10 text-primary'
                                 : 'text-muted-foreground'
                                 }`}
@@ -585,7 +580,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
                             }`}
                           onClick={async () => {
                             if (!currentUser) return;
-                            const postRef = doc(db, "posts", post.id);
+                            const postRef = doc(db, `organizations/${org.id}/posts`, post.id);
 
                             const isCurrentlySaved = (post.savedBy || []).includes(currentUser.uid);
 
@@ -648,7 +643,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
                                 if (!currentUser) return;
                                 const trimmed = commentText.trim();
                                 if (e.key === "Enter" && trimmed) {
-                                  const commentsCol = collection(db, "posts", post.id, "comments");
+                                  const commentsCol = collection(db, `organizations/${org.id}/posts`, post.id, "comments");
                                   await addDoc(commentsCol, {
                                     user: currentUser.name,
                                     avatar: currentUser.avatar || "",
@@ -669,7 +664,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
                                 if (!currentUser) return;
                                 const trimmed = commentText.trim();
                                 if (!trimmed) return;
-                                const commentsCol = collection(db, "posts", post.id, "comments");
+                                const commentsCol = collection(db, `organizations/${org.id}/posts`, post.id, "comments");
                                 await addDoc(commentsCol, {
                                   user: currentUser.name,
                                   avatar: currentUser.avatar || "",

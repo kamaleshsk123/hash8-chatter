@@ -223,8 +223,9 @@ export const MessageList: React.FC<MessageListProps> = ({
                   <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                     <span>
                       {message.timestamp.toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                        hour: 'numeric', 
+                        minute: '2-digit',
+                        hour12: true
                       })}
                     </span>
                     {isOwnMessage && (

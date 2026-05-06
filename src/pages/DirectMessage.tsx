@@ -12,12 +12,15 @@ import {
   sendDirectMessageWithFile,
   addMessageReaction,
   editDirectMessage,
+  deleteDirectMessage,
   softDeleteDirectMessage,
   setTypingIndicator,
+  resetUnreadCount,
   subscribeToTypingIndicators,
   db
 } from "@/services/firebase";
 import { offlineCache } from "@/services/offlineCache";
+import { generateUUID } from "@/utils/uuid";
 import { hybridMessaging, HybridMessage } from "@/services/hybridMessaging";
 import { bluetoothMessaging } from "@/services/bluetoothMessaging";
 import { doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -76,8 +79,8 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   otherUser,
   onBack
 }) => {
-  const { user } = useAuth();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isOnline, wasOffline } = useNetworkStatus();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -97,6 +100,54 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   const messageRefs = useRef<Record<string, HTMLDivElement>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearChat = async () => {
+    // Soft delete all messages in this conversation
+    if (!user) return;
+    
+    // Only proceed if there are messages to delete
+    const activeMessages = messages.filter((msg) => !msg.deleted);
+    if (activeMessages.length === 0) {
+      toast({
+        title: 'Chat is already empty',
+        description: 'There are no messages to clear.',
+      });
+      return;
+    }
+
+    try {
+      // Use a loading toast for large deletions
+      const isLargeChat = activeMessages.length > 10;
+      if (isLargeChat) {
+        toast({
+          title: 'Clearing chat...',
+          description: `Deleting ${activeMessages.length} messages. This may take a moment.`,
+        });
+      }
+
+      const deletePromises = activeMessages.map((msg) => 
+        deleteDirectMessage(conversationId, msg.id, user.uid, true)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      setMessages([]);
+      // Remove cached messages for this conversation
+      offlineCache.removeCachedConversation(conversationId);
+      
+      toast({
+        title: 'Chat cleared',
+        description: 'All messages have been removed. They can be recovered within 6 months.',
+      });
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      toast({
+        title: 'Error clearing chat',
+        description: 'Something went wrong while trying to clear the messages. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -145,6 +196,11 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         }
       }
 
+      // Reset unread count immediately if online
+      if (isOnline && user) {
+        resetUnreadCount(conversationId, user.uid);
+      }
+
       // If online, also set up real-time subscription
       if (isOnline) {
         try {
@@ -166,6 +222,9 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
                 );
                 
                 if (unreadMessages.length > 0) {
+                  // Reset conversation unread count
+                  resetUnreadCount(conversationId, user.uid);
+
                   unreadMessages.forEach(msg => {
                     markDirectMessageAsRead(
                       conversationId,
@@ -269,30 +328,11 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
   // Handle network status changes for Bluetooth
   useEffect(() => {
-    if (!isOnline && !bluetoothStatus.enabled && !bluetoothStatus.scanning) {
-      // Try to enable Bluetooth when going offline
-      setBluetoothStatus(prev => ({ ...prev, scanning: true }));
-      
-      hybridMessaging.enableBluetoothMode()
-        .then(enabled => {
-          setBluetoothStatus({
-            enabled,
-            deviceCount: enabled ? bluetoothMessaging.getConnectedDevices().length : 0,
-            scanning: false
-          });
-          
-          if (enabled) {
-            toast({
-              title: "Bluetooth Messaging Enabled",
-              description: `Connected to ${bluetoothMessaging.getConnectedDevices().length} nearby device(s)`,
-              duration: 4000,
-            });
-          }
-        })
-        .catch(error => {
-          console.error('Bluetooth initialization failed:', error);
-          setBluetoothStatus({ enabled: false, deviceCount: 0, scanning: false });
-        });
+    if (!isOnline && !bluetoothStatus.enabled) {
+      // We can no longer automatically scan for Bluetooth devices when going offline
+      // because browsers require a user gesture (like a button click) to open the
+      // Bluetooth device chooser (SecurityError).
+      console.log("[Bluetooth] Offline mode detected. User must manually initiate Bluetooth scan.");
     } else if (isOnline && bluetoothStatus.enabled) {
       // Sync Bluetooth messages when coming back online
       hybridMessaging.syncOfflineMessages()
@@ -307,7 +347,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           console.error('Sync failed:', error);
         });
     }
-  }, [isOnline, bluetoothStatus.enabled, bluetoothStatus.scanning, toast]);
+  }, [isOnline, bluetoothStatus.enabled, toast]);
 
   useEffect(() => {
     if (!conversationId || !user) return;
@@ -531,7 +571,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         fileUrl = await uploadDocumentToCloudinary(file);
       }
 
-      const messageId = crypto.randomUUID();
+      const messageId = generateUUID();
       const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
       
       const messageDoc = {
@@ -598,7 +638,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
       const fileUrl = await uploadDocumentToCloudinary(audioFile);
 
-      const messageId = crypto.randomUUID();
+      const messageId = generateUUID();
       const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
       
       const messageDoc = {
@@ -734,7 +774,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
   return (
     <div className="flex flex-col h-full w-full bg-background">
-      <DirectMessageHeader otherUser={otherUser} />
+      <DirectMessageHeader otherUser={otherUser} onClearChat={clearChat} />
       
       {/* Offline/Bluetooth Mode Indicator */}
       {(isOfflineMode || bluetoothStatus.enabled) && (

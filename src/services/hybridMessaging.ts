@@ -3,6 +3,8 @@ import { bluetoothMessaging, BluetoothMessage } from './bluetoothMessaging';
 import { offlineCache } from './offlineCache';
 import { syncService } from './syncService';
 
+import { generateUUID } from '@/utils/uuid';
+
 type MessageTransport = 'firebase' | 'bluetooth' | 'cache';
 
 interface HybridMessage {
@@ -76,7 +78,7 @@ class HybridMessagingService {
     messageData: Omit<HybridMessage, 'id' | 'timestamp' | 'transport' | 'conversationId'>,
     isOnline: boolean
   ): Promise<MessageSendResult> {
-    const messageId = crypto.randomUUID();
+    const messageId = generateUUID();
     const message: HybridMessage = {
       id: messageId,
       conversationId,
@@ -94,7 +96,8 @@ class HybridMessagingService {
           senderName: messageData.senderName,
           senderAvatar: messageData.senderAvatar,
           type: messageData.type,
-          replyTo: messageData.replyTo
+          replyTo: messageData.replyTo,
+          id: messageId // Pass our locally generated ID to Firebase
         });
 
         message.transport = 'firebase';
