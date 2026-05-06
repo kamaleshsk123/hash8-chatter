@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ChatBubble } from "@/components/ChatBubble";
+import { formatChatDate, isSameDay } from "@/utils/dateUtils";
 import { GroupListItem } from "@/components/GroupListItem";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { useAuth } from "@/context/AuthContext";
@@ -1017,19 +1018,30 @@ const Chat = () => {
                           message.timestamp.getTime() -
                             prevMessage.timestamp.getTime() <
                             60000;
+                            
+                        const showDateSeparator = !prevMessage || !isSameDay(prevMessage.timestamp, message.timestamp);
+
                         return (
-                          <ChatBubble
-                            key={message.id}
-                            message={message}
-                            isConsecutive={isConsecutive}
-                            currentUserRole={selectedOrg?.userRole}
-                            organizationId={selectedOrg?.id}
-                            groupId={selectedGroup?.id}
-                            onMessageDeleted={() => {
-                              // Refresh messages when a message is deleted
-                              // The subscription should handle this automatically
-                            }}
-                          />
+                          <div key={message.id}>
+                            {showDateSeparator && (
+                              <div className="flex justify-center my-6 sticky top-2 z-10">
+                                <div className="bg-muted/80 backdrop-blur-sm text-muted-foreground text-[11px] font-medium px-3 py-1 rounded-full shadow-sm border border-border/50">
+                                  {formatChatDate(message.timestamp)}
+                                </div>
+                              </div>
+                            )}
+                            <ChatBubble
+                              message={message}
+                              isConsecutive={isConsecutive}
+                              currentUserRole={selectedOrg?.userRole}
+                              organizationId={selectedOrg?.id}
+                              groupId={selectedGroup?.id}
+                              onMessageDeleted={() => {
+                                // Refresh messages when a message is deleted
+                                // The subscription should handle this automatically
+                              }}
+                            />
+                          </div>
                         );
                       })}
                     </AnimatePresence>
