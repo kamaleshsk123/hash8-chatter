@@ -83,9 +83,10 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
   senderAvatar?: string;
   type?: 'text' | 'image' | 'file';
   replyTo?: any;
+  id?: string; // Optional pre-generated ID
 }) => {
   try {
-    const messageId = generateUUID();
+    const messageId = messageData.id || generateUUID();
     const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
     
     const messageDoc: any = {

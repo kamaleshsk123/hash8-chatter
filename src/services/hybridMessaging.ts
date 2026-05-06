@@ -3,12 +3,7 @@ import { bluetoothMessaging, BluetoothMessage } from './bluetoothMessaging';
 import { offlineCache } from './offlineCache';
 import { syncService } from './syncService';
 
-// Fallback UUID generator for insecure contexts (like accessing via IP over HTTP)
-function generateUUID(): string {
-  // In secure contexts, `crypto.randomUUID` is guaranteed to exist.
-  // If it is unavailable (unlikely in modern browsers), this will throw.
-  return (crypto as any).randomUUID();
-}
+import { generateUUID } from '@/utils/uuid';
 
 type MessageTransport = 'firebase' | 'bluetooth' | 'cache';
 
@@ -101,7 +96,8 @@ class HybridMessagingService {
           senderName: messageData.senderName,
           senderAvatar: messageData.senderAvatar,
           type: messageData.type,
-          replyTo: messageData.replyTo
+          replyTo: messageData.replyTo,
+          id: messageId // Pass our locally generated ID to Firebase
         });
 
         message.transport = 'firebase';
