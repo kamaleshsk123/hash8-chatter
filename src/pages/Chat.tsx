@@ -818,7 +818,10 @@ const Chat = () => {
       </AnimatePresence>
       
       {/* Global Search Component */}
-      <GlobalSearch onSelectResult={handleSearchResult as any} />
+      <GlobalSearch 
+        onSelectResult={handleSearchResult as any} 
+        currentOrgId={selectedOrg?.id}
+      />
 
       {/* Main area: show FeedDemo or Chat UI */}
       {showOrganizationSettings && selectedOrgForSettings ? (

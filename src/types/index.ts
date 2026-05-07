@@ -17,7 +17,9 @@ export interface User {
     desktop?: boolean;
     sound?: boolean;
     email?: boolean;
+    pushEnabled?: boolean;
   };
+  fcmTokens?: string[];
 }
 
 export type UserRole = 'admin' | 'moderator' | 'member';

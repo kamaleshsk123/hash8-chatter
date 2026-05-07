@@ -8,6 +8,7 @@ import {
   enableIndexedDbPersistence
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging } from 'firebase/messaging';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -38,6 +39,18 @@ enableIndexedDbPersistence(db)
     }
   });
 export const storage = getStorage(app);
+
+// Messaging initialization with support check for insecure contexts (e.g. IP-based access)
+let messagingInstance = null;
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    messagingInstance = getMessaging(app);
+  } catch (error) {
+    console.warn('Firebase Messaging is not supported in this browser/context:', error);
+  }
+}
+
+export const messaging = messagingInstance;
 export const googleProvider = new GoogleAuthProvider();
 
 // Configure Google Auth Provider

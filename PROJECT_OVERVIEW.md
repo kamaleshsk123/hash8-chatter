@@ -35,8 +35,8 @@
 | **P0** (must‑do) | Technical Debt Cleanup | ✅ **COMPLETE** | 2‑4 days total |
 | **P1** | Push Notifications (Web Push + FCM) | **NEXT UP** | 2‑3 days |
 | **P2** | Global Search (messages, users, posts) | **PLANNED** | 2 days |
-| **P3** | Pinned Messages | ✅ **DONE** | 1 day |
-| **P4** | Message Threads | **PLANNED** | 3‑4 days |
+| **P3** | Pinned Messages | ✅ **COMPLETE** | Persistent sidebar + highlight |
+| **P4** | Message Threads | ✅ **WORKING** | UI refinements & logic added |
 | **P5** | Audio/Video Calls (WebRTC) | Differentiator for an intranet‑messaging platform. | 5‑7 days |
 | **P6** | PWA / Installable App | Offline‑first experience, native‑like feel. | 2‑3 days |
 | **P7** | Polls & Surveys | Simple collaboration tool for teams. | 2‑3 days |
@@ -51,14 +51,15 @@
    - Optimize `getUsersByIds` with batched queries.
    - Wire notification switches and security features in `UserProfile.tsx`.
 2. **Sprint 2 – Core UX Boost** (🚀 **CURRENT**)
-   - Implement Global Search (client‑side FlexSearch or Firestore query‑based).
-   - Implement Message Threads (reducing chat chaos).
-   - Initial work on Push Notifications.
+   - Implement Message Threads (UI refined, parent message simplified).
+   - Enhance Pinned Messages (Persistent sidebar with auto-scroll & highlight).
+   - Implement Global Search (NEXT UP).
+   - Initial work on Push Notifications (PLANNED).
 3. **Sprint 3 – Advanced Features**
    - Begin Audio/Video Call integration (WebRTC).
    - Optionally enable PWA support and Polls.
 
-> **Bottom line:** Fix the critical bugs first (P0). Once the codebase is stable, the high‑impact features (push notifications, search, pins, threads) will be straightforward to add and will dramatically improve the user experience.
+> **Bottom line:** With the stability fixes and core UI refinements (Threads & Pins) complete, the focus shifts to Global Search and Push Notifications to round out the professional messaging experience.
 
 ---
 *Generated on 2026‑05‑07*

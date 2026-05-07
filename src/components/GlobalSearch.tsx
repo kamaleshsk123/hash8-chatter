@@ -16,21 +16,26 @@ import {
   Hash,
   Clock
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { searchUsers, getUserOrganizations } from "@/services/firebase";
+import { searchGlobalMessages, searchOrgPosts } from "@/services/search";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface GlobalSearchProps {
   onSelectResult: (type: 'chat' | 'feed' | 'direct_message' | 'your-feed', id: string, extra?: any) => void;
+  currentOrgId?: string;
 }
 
-export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectResult }) => {
+export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectResult, currentOrgId }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{
     users: any[];
     orgs: any[];
-  }>({ users: [], orgs: [] });
+    messages: any[];
+    posts: any[];
+  }>({ users: [], orgs: [], messages: [], posts: [] });
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
@@ -47,20 +52,22 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectResult }) =>
 
   useEffect(() => {
     if (!query || query.length < 2) {
-      setResults({ users: [], orgs: [] });
+      setResults({ users: [], orgs: [], messages: [], posts: [] });
       return;
     }
 
     const performSearch = async () => {
       setLoading(true);
       try {
-        const [users, orgs] = await Promise.all([
+        const [users, orgs, messages, posts] = await Promise.all([
           searchUsers(query),
           getUserOrganizations(user?.uid || '').then(allOrgs => 
             allOrgs.filter(o => o.name.toLowerCase().includes(query.toLowerCase()))
-          )
+          ),
+          searchGlobalMessages(query),
+          currentOrgId ? searchOrgPosts(currentOrgId, query) : Promise.resolve([])
         ]);
-        setResults({ users, orgs });
+        setResults({ users, orgs, messages, posts });
       } catch (error) {
         console.error("Search failed:", error);
       } finally {
@@ -80,6 +87,23 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectResult }) =>
   const handleSelectOrg = (org: any) => {
     setOpen(false);
     onSelectResult('feed', org.id);
+  };
+
+  const handleSelectMessage = (msg: any) => {
+    setOpen(false);
+    // Navigate to chat/dm where the message belongs
+    // For now, we'll try to find if it has a groupId or convId
+    if (msg.groupId) {
+      onSelectResult('chat', msg.groupId, { orgId: msg.organizationId });
+    } else {
+      // Default to direct message if no groupId
+      onSelectResult('direct_message', msg.senderId);
+    }
+  };
+
+  const handleSelectPost = (post: any) => {
+    setOpen(false);
+    onSelectResult('feed', currentOrgId || '');
   };
 
   return (
@@ -122,6 +146,46 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onSelectResult }) =>
                   <div className="flex flex-col">
                     <span className="font-medium">{u.name}</span>
                     <span className="text-xs text-muted-foreground">{u.jobTitle || 'Member'}</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          {results.messages.length > 0 && (
+            <CommandGroup heading="Messages">
+              {results.messages.map((msg) => (
+                <CommandItem
+                  key={msg.id}
+                  onSelect={() => handleSelectMessage(msg)}
+                  className="flex items-center gap-2"
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span className="font-medium text-sm truncate">{msg.text}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      from {msg.senderName} • {formatDistanceToNow(msg.timestamp instanceof Date ? msg.timestamp : (msg.timestamp as any)?.toDate?.() || new Date(), { addSuffix: true })}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          {results.posts.length > 0 && (
+            <CommandGroup heading="Feed Posts">
+              {results.posts.map((post) => (
+                <CommandItem
+                  key={post.id}
+                  onSelect={() => handleSelectPost(post)}
+                  className="flex items-center gap-2"
+                >
+                  <Hash className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span className="font-medium text-sm truncate">{post.content}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      in Feed • {formatDistanceToNow(post.createdAt instanceof Date ? post.createdAt : (post.createdAt as any)?.toDate?.() || new Date(), { addSuffix: true })}
+                    </span>
                   </div>
                 </CommandItem>
               ))}

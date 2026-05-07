@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,16 +22,21 @@ import {
   Building2,
   Users,
   MessageSquare,
-  Clock,
   Shield,
   Settings,
-  Bell,
-  Lock,
-  Globe,
-  Moon,
   Sun,
+  Moon,
   Monitor,
+  CreditCard,
+  BadgeCheck,
+  Loader2,
+  Bell,
+  Globe,
+  Clock,
+  Lock,
+  Edit2
 } from "lucide-react";
+import { requestNotificationPermission } from "@/services/notifications";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +49,7 @@ interface UserProfileProps {
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   const { user, refreshUser } = useAuth();
-  const { theme, setTheme, actualTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,6 +70,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
     location: user?.location || "",
     notifications: {
       desktop: user?.notifications?.desktop ?? true,
+      pushEnabled: user?.notifications?.pushEnabled ?? false,
       sound: user?.notifications?.sound ?? true,
       email: user?.notifications?.email ?? false,
     }
@@ -110,6 +116,27 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
         [key]: value
       }
     }));
+  };
+
+  const handleRequestPermission = async () => {
+    if (!user) return;
+    const token = await requestNotificationPermission(user.uid);
+    if (token) {
+      setFormData(prev => ({
+        ...prev,
+        notifications: { ...prev.notifications, pushEnabled: true }
+      }));
+      toast({
+        title: "Notifications Enabled",
+        description: "You will now receive desktop notifications.",
+      });
+    } else {
+      toast({
+        title: "Permission Denied",
+        description: "Please enable notifications in your browser settings.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleResetPassword = async () => {
@@ -247,6 +274,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                     location: user?.location || "",
                     notifications: {
                       desktop: user?.notifications?.desktop ?? true,
+                      pushEnabled: user?.notifications?.pushEnabled ?? false,
                       sound: user?.notifications?.sound ?? true,
                       email: user?.notifications?.email ?? false,
                     }
@@ -469,11 +497,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                               <p className="text-sm text-muted-foreground">
                                 {org.description || "No description available"}
                               </p>
-                              {org.createdAt && (
-                                <p className="text-xs text-muted-foreground">
-                                  Joined {new Date(org.createdAt).toLocaleDateString()}
-                                </p>
-                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -513,10 +536,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MessageSquare className="h-5 w-5" />
-                    Activity & Stats
+                    Activity
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-muted/30 rounded-lg">
                       <p className="text-xs text-muted-foreground uppercase mb-1">Organizations</p>
@@ -594,12 +617,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium">Desktop Notifications</p>
-                          <p className="text-xs text-muted-foreground">Receive notifications on your desktop</p>
+                          <p className="text-sm font-medium">Push Notifications</p>
+                          <p className="text-xs text-muted-foreground">Receive browser notifications</p>
                         </div>
                         <Switch 
-                          checked={formData.notifications.desktop}
-                          onCheckedChange={(checked) => handleNotificationChange("desktop", checked)}
+                          checked={formData.notifications.pushEnabled}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              handleRequestPermission();
+                            } else {
+                              setFormData(prev => ({
+                                ...prev,
+                                notifications: { ...prev.notifications, pushEnabled: false }
+                              }));
+                            }
+                          }}
                         />
                       </div>
                       <div className="flex items-center justify-between">
