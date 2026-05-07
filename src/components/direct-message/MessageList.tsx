@@ -130,6 +130,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                   <div
+                    id={`msg-${message.id}`}
                     ref={(el) => {
                       if (el) messageRefs.current[message.id] = el;
                     }}

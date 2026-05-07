@@ -83,6 +83,7 @@ import { InviteToGroupDialog } from "./InviteToGroupDialog";
 import { GroupInfoSheet } from "./GroupInfoSheet";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ThreadView } from "@/components/ThreadView";
+import { PinnedMessagesSidebar } from "@/components/PinnedMessagesSidebar";
 
 // Mock data for development
 const mockGroups: Group[] = [
@@ -245,6 +246,7 @@ const Chat = () => {
   const [selectedOrgForSettings, setSelectedOrgForSettings] =
     useState<any>(null);
   const [selectedThreadMessage, setSelectedThreadMessage] = useState<Message | null>(null);
+  const [showPinnedSidebar, setShowPinnedSidebar] = useState(false);
   const refreshOrganizationsRef = useRef<() => void>(() => {});
 
   // Function to update URL with current state
@@ -307,6 +309,17 @@ const Chat = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollToMessage = (messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('bg-primary/20', 'transition-colors', 'duration-500');
+      setTimeout(() => {
+        el.classList.remove('bg-primary/20');
+      }, 2000);
+    }
   };
 
   useEffect(() => {
@@ -988,73 +1001,14 @@ const Chat = () => {
                       </div>
                     </SheetContent>
                   </Sheet>
-                  <Sheet>
-                    <SheetTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <Pin className="w-4 h-4" />
-                      </Button>
-                    </SheetTrigger>
-                    <SheetContent side="right" className="w-[400px] sm:w-[540px]">
-                      <SheetHeader>
-                        <SheetTitle className="flex items-center gap-2">
-                          <Pin className="w-5 h-5 text-primary" />
-                          Pinned Messages
-                        </SheetTitle>
-                      </SheetHeader>
-                      <div className="mt-6">
-                        {messages.filter(m => m.isPinned).length > 0 ? (
-                          <div className="flex flex-col gap-4">
-                            {messages
-                              .filter(m => m.isPinned)
-                              .map((msg) => (
-                                <div 
-                                  key={msg.id} 
-                                  className="group relative p-3 bg-muted/40 hover:bg-muted/60 rounded-xl border border-border/50 transition-colors cursor-pointer"
-                                  onClick={() => {
-                                    // Logic to scroll to message could be added here
-                                  }}
-                                >
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Avatar className="w-5 h-5">
-                                      <AvatarImage src={msg.senderAvatar} />
-                                      <AvatarFallback className="text-[10px] bg-primary/10">
-                                        {msg.senderName.charAt(0)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-xs font-medium text-foreground">{msg.senderName}</span>
-                                    <span className="text-[10px] text-muted-foreground">
-                                      {formatDistanceToNow(msg.timestamp, { addSuffix: true })}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground line-clamp-3 pl-7">
-                                    {msg.text}
-                                  </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background shadow-sm border opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTogglePin(msg.id, false);
-                                    }}
-                                  >
-                                    <PinOff className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                              <Pin className="w-6 h-6 text-muted-foreground opacity-20" />
-                            </div>
-                            <p className="text-sm text-muted-foreground italic">No pinned messages yet.</p>
-                            <p className="text-xs text-muted-foreground/60 mt-1">Pin important messages to find them easily.</p>
-                          </div>
-                        )}
-                      </div>
-                    </SheetContent>
-                  </Sheet>
+                  <Button variant="ghost" size="icon" className="relative" onClick={() => setShowPinnedSidebar(!showPinnedSidebar)}>
+                    <Pin className="w-4 h-4" />
+                    {messages.filter(m => m.isPinned).length > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow-sm">
+                        {messages.filter(m => m.isPinned).length}
+                      </span>
+                    )}
+                  </Button>
                     <Button 
                       variant="ghost" 
                       size="icon" 
@@ -1184,7 +1138,7 @@ const Chat = () => {
                         .map((msg, index) => {
                         const isConsecutive = index > 0 && messages[index - 1].senderId === msg.senderId;
                         return (
-                          <div key={msg.id}>
+                          <div key={msg.id} id={`msg-${msg.id}`} className="rounded-2xl">
                             <ChatBubble
                               message={msg}
                               isConsecutive={isConsecutive}
@@ -1258,6 +1212,14 @@ const Chat = () => {
               orgId={selectedOrg?.id}
               groupId={selectedGroup?.id}
               onClose={() => setSelectedThreadMessage(null)}
+            />
+          )}
+          {showPinnedSidebar && (
+            <PinnedMessagesSidebar
+              messages={messages}
+              onClose={() => setShowPinnedSidebar(false)}
+              onTogglePin={handleTogglePin}
+              onMessageClick={scrollToMessage}
             />
           )}
         </div>

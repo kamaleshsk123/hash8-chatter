@@ -29,6 +29,7 @@ import { DirectMessageHeader } from '@/components/direct-message/DirectMessageHe
 import { MessageList } from '@/components/direct-message/MessageList';
 import { MessageInput } from '@/components/direct-message/MessageInput';
 import { ThreadView } from '@/components/ThreadView';
+import { PinnedMessagesSidebar } from '@/components/PinnedMessagesSidebar';
 
 interface DirectMessageProps {
   conversationId: string;
@@ -98,6 +99,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   const [editingText, setEditingText] = useState('');
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [selectedThreadMessage, setSelectedThreadMessage] = useState<Message | null>(null);
+  const [showPinnedSidebar, setShowPinnedSidebar] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [bluetoothStatus, setBluetoothStatus] = useState<{
     enabled: boolean;
@@ -159,6 +161,17 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollToMessage = (messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('bg-primary/20', 'transition-colors', 'duration-500');
+      setTimeout(() => {
+        el.classList.remove('bg-primary/20');
+      }, 2000);
+    }
   };
 
   useEffect(() => {
@@ -816,12 +829,12 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden h-full">
-      <div className="flex-1 flex flex-col min-w-0 bg-background relative border-r">
-        <DirectMessageHeader
+      <div className="flex-1 flex flex-col min-w-0 bg-background relative">
+        <DirectMessageHeader 
           otherUser={otherUser}
           onClearChat={clearChat}
           messages={messages}
-          onTogglePin={handleTogglePin}
+          onTogglePinnedSidebar={() => setShowPinnedSidebar(!showPinnedSidebar)}
         />
 
         {/* Offline/Bluetooth Mode Indicator */}
@@ -917,6 +930,14 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           groupId={conversationId}
           isDM={true}
           onClose={() => setSelectedThreadMessage(null)}
+        />
+      )}
+      {showPinnedSidebar && (
+        <PinnedMessagesSidebar
+          messages={messages}
+          onClose={() => setShowPinnedSidebar(false)}
+          onTogglePin={handleTogglePin}
+          onMessageClick={scrollToMessage}
         />
       )}
     </div>
