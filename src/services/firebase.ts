@@ -50,7 +50,8 @@ export {
   getUsersByIds, 
   updateUserProfile, 
   updateUserStatus, 
-  subscribeToUserStatus 
+  subscribeToUserStatus,
+  searchUsers 
 } from './users';
 
 // === Groups ===

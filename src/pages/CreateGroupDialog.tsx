@@ -86,7 +86,7 @@ export const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
     setLoading(true);
     try {
       const orgMembers = await getOrganizationMembers(org.id);
-      setMembers(orgMembers);
+      setMembers(orgMembers as Member[]);
 
       // Fetch user profiles
       const userIds = orgMembers
@@ -309,9 +309,9 @@ export const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
                   </div>
                 ) : (
                   filteredMembers.map((member) => {
-                    const profile = userProfiles[member.userId] || {};
+                    const profile: any = userProfiles[member.userId] || {};
                     const displayName =
-                      profile.displayName || member.userId || "Unknown User";
+                      profile.name || member.userId || "Unknown User";
                     const isCurrentUser = member.userId === userId;
                     const isSelected = selectedMembers.has(member.userId);
 

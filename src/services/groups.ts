@@ -172,13 +172,13 @@ export const getGroupMessages = async (orgId: string, groupId: string, limitCoun
   }
 };
 
-// Send a message to a group
 export const sendGroupMessage = async (orgId: string, groupId: string, messageData: {
   text: string;
   senderId: string;
   senderName: string;
   senderAvatar?: string;
   type?: 'text' | 'image' | 'file';
+  parentMessageId?: string;
 }) => {
   try {
     const messageId = generateUUID();
@@ -195,10 +195,23 @@ export const sendGroupMessage = async (orgId: string, groupId: string, messageDa
       timestamp: serverTimestamp(),
       reactions: [],
       isEdited: false,
-      readBy: []
+      readBy: [],
+      parentMessageId: messageData.parentMessageId || null
     };
     
     await setDoc(messageRef, messageDoc);
+
+    // If it's a reply in a thread, increment the parent's reply count
+    if (messageData.parentMessageId) {
+      const parentRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageData.parentMessageId);
+      const parentDoc = await getDoc(parentRef);
+      if (parentDoc.exists()) {
+        const currentCount = parentDoc.data().replyCount || 0;
+        await updateDoc(parentRef, {
+          replyCount: currentCount + 1
+        });
+      }
+    }
     
     // Update group's lastActivity
     const groupRef = doc(db, `organizations/${orgId}/groups`, groupId);
@@ -245,6 +258,8 @@ export const subscribeToGroupMessages = (
         isEdited: data.isEdited || false,
         editedAt: data.editedAt?.toDate(),
         replyTo: data.replyTo,
+        parentMessageId: data.parentMessageId,
+        replyCount: data.replyCount || 0,
         isPinned: data.isPinned || false,
         pinnedBy: data.pinnedBy,
         pinnedAt: data.pinnedAt?.toDate(),

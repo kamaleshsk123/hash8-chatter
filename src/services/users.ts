@@ -71,3 +71,18 @@ export const subscribeToUserStatus = (userIds: string[], callback: (statuses: an
     callback(statuses);
   });
 };
+
+// Search users by name prefix
+export const searchUsers = async (searchTerm: string) => {
+  if (!searchTerm || searchTerm.length < 2) return [];
+  
+  const q = query(
+    collection(db, "users"),
+    where("name", ">=", searchTerm),
+    where("name", "<=", searchTerm + '\uf8ff'),
+    limit(10)
+  );
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ userId: doc.id, ...doc.data() }));
+};

@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
 import { MessageList } from './MessageList';
 import { Check, CheckCheck } from 'lucide-react';
 
@@ -7,6 +8,7 @@ describe('MessageList', () => {
   const messages = [
     {
       id: '1',
+      groupId: '1',
       text: 'Hello',
       senderId: '1',
       senderName: 'John Doe',
@@ -17,15 +19,16 @@ describe('MessageList', () => {
     },
     {
       id: '2',
+      groupId: '1',
       text: 'Hi',
       senderId: '2',
       senderName: 'Jane Doe',
       timestamp: new Date(),
-      type: 'text',
+      type: 'text' as const,
       readBy: [],
       isRead: false,
     },
-  ];
+  ] as any[];
 
   const user = { uid: '1' };
   const otherUser = { userId: '2', name: 'Jane Doe' };
@@ -44,6 +47,7 @@ describe('MessageList', () => {
         handleReplyToMessage={() => {}}
         handleReaction={() => {}}
         handleReplyClick={() => {}}
+        handleTogglePin={() => {}}
       />
     );
     expect(screen.getByText('Hello')).toBeInTheDocument();
@@ -64,6 +68,7 @@ describe('MessageList', () => {
         handleReplyToMessage={() => {}}
         handleReaction={() => {}}
         handleReplyClick={() => {}}
+        handleTogglePin={() => {}}
       />
     );
     expect(screen.getByText('Loading messages...')).toBeInTheDocument();
@@ -83,6 +88,7 @@ describe('MessageList', () => {
         handleReplyToMessage={() => {}}
         handleReaction={() => {}}
         handleReplyClick={() => {}}
+        handleTogglePin={() => {}}
       />
     );
     expect(screen.getByText('No messages yet')).toBeInTheDocument();

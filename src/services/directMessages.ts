@@ -77,7 +77,6 @@ export const createOrGetDirectMessage = async (userId1: string, userId2: string)
   }
 };
 
-// Send a direct message
 export const sendDirectMessage = async (conversationId: string, messageData: {
   text: string;
   senderId: string;
@@ -86,6 +85,7 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
   type?: 'text' | 'image' | 'file';
   replyTo?: any;
   id?: string; // Optional pre-generated ID
+  parentMessageId?: string; // Added for threads
 }) => {
   try {
     const messageId = messageData.id || generateUUID();
@@ -102,7 +102,9 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
       timestamp: serverTimestamp(),
       readBy: [], // Array to track who has read the message
       isRead: false, // Legacy field for backward compatibility
-      reactions: {}
+      reactions: {},
+      parentMessageId: messageData.parentMessageId || null,
+      replyCount: 0
     };
 
     // Add reply data if present
@@ -111,6 +113,18 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
     }
     
     await setDoc(messageRef, messageDoc);
+    
+    // If it's a reply in a thread, increment the parent's reply count
+    if (messageData.parentMessageId) {
+      const parentRef = doc(db, `direct_messages/${conversationId}/messages`, messageData.parentMessageId);
+      const parentDoc = await getDoc(parentRef);
+      if (parentDoc.exists()) {
+        const currentCount = parentDoc.data().replyCount || 0;
+        await updateDoc(parentRef, {
+          replyCount: currentCount + 1
+        });
+      }
+    }
     
     // Update conversation's lastActivity, lastMessage and unreadCount for recipient
     const conversationRef = doc(db, 'direct_messages', conversationId);
@@ -206,6 +220,8 @@ export const subscribeToDirectMessages = (
         isEdited: data.isEdited || false,
         editedAt: data.editedAt?.toDate(),
         replyTo: data.replyTo,
+        parentMessageId: data.parentMessageId,
+        replyCount: data.replyCount || 0,
         isPinned: data.isPinned || false,
         pinnedBy: data.pinnedBy,
         pinnedAt: data.pinnedAt?.toDate(),

@@ -13,7 +13,8 @@ import {
   CheckCheck, 
   Clock, 
   Pin, 
-  PinOff 
+  PinOff,
+  MessageSquare
 } from "lucide-react";
 import { MessageReactions } from "@/components/MessageReactions";
 import { ReplyToMessage } from "@/components/ReplyToMessage";
@@ -54,6 +55,8 @@ interface Message {
   deleted?: boolean;
   hasPendingWrites?: boolean; // Added for offline support
   isPinned?: boolean;
+  parentMessageId?: string;
+  replyCount?: number;
 }
 
 interface MessageListProps {
@@ -69,6 +72,7 @@ interface MessageListProps {
   handleReaction: (messageId: string, emoji: string) => void;
   handleReplyClick: (messageId: string) => void;
   handleTogglePin: (messageId: string, isPinned: boolean) => void;
+  onOpenThread?: (message: Message) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -84,6 +88,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   handleReaction,
   handleReplyClick,
   handleTogglePin,
+  onOpenThread,
 }) => {
   return (
     <ScrollArea className="flex-1 p-4">
@@ -207,6 +212,18 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </p>
                           )}
                         </div>
+
+                        {message.replyCount && message.replyCount > 0 ? (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 px-2 mt-1 text-[10px] text-primary hover:text-primary/80 bg-primary/5 rounded-full"
+                            onClick={() => onOpenThread?.(message)}
+                          >
+                            <MessageSquare className="w-3 h-3 mr-1" />
+                            {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
+                          </Button>
+                        ) : null}
                         
                         {!message.deleted && (
                           <DropdownMenu>
@@ -238,6 +255,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                               <DropdownMenuItem onClick={() => handleReplyToMessage(message)}>
                                 <Reply className="h-4 w-4 mr-2" />
                                 Reply
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onOpenThread?.(message)}>
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Reply in Thread
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleTogglePin(message.id, !message.isPinned)}>
                                 {message.isPinned ? (

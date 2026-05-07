@@ -192,7 +192,7 @@ export const MemberRoleActions: React.FC<MemberRoleActionsProps> = ({
             <AlertDialogAction 
               onClick={handleDemoteFromModerator}
               disabled={isLoading}
-              variant="destructive"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isLoading ? 'Demoting...' : 'Demote to Member'}
             </AlertDialogAction>

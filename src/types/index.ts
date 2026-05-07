@@ -13,6 +13,11 @@ export interface User {
   location?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  notifications?: {
+    desktop?: boolean;
+    sound?: boolean;
+    email?: boolean;
+  };
 }
 
 export type UserRole = 'admin' | 'moderator' | 'member';
@@ -70,6 +75,8 @@ export interface Message {
   pinnedBy?: string;
   pinnedAt?: Date;
   hasPendingWrites?: boolean; // Added for offline support
+  parentMessageId?: string; // For threads
+  replyCount?: number;      // Number of replies in the thread
 }
 
 export interface ReadReceipt {

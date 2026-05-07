@@ -245,6 +245,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                     department: user?.department || "",
                     bio: user?.bio || "",
                     location: user?.location || "",
+                    notifications: {
+                      desktop: user?.notifications?.desktop ?? true,
+                      sound: user?.notifications?.sound ?? true,
+                      email: user?.notifications?.email ?? false,
+                    }
                   });
                 } else {
                   setIsEditing(true);

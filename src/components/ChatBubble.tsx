@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { MessageReadReceipts } from "@/components/MessageReadReceipts";
 import { MessageModerationMenu } from "@/components/moderation/MessageModerationMenu";
-import { Clock, Wifi, WifiOff, Pin } from "lucide-react";
+import { Clock, Wifi, WifiOff, Pin, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ChatBubbleProps {
   message: Message;
@@ -17,6 +18,8 @@ interface ChatBubbleProps {
   onMessageDeleted?: () => void;
   onTogglePin?: (messageId: string, isPinned: boolean) => void;
   onEditMessage?: (message: Message) => void;
+  onReply?: (message: Message) => void;
+  isThreadParent?: boolean;
 }
 
 export const ChatBubble: React.FC<ChatBubbleProps> = ({
@@ -28,6 +31,8 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   onMessageDeleted,
   onTogglePin,
   onEditMessage,
+  onReply,
+  isThreadParent = false,
 }) => {
   const { user } = useAuth();
   const isOwnMessage = message.senderId === user?.uid;
@@ -91,7 +96,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
               </p>
             ) : (
               <div className="flex flex-col gap-1">
-                {message.isPinned && (
+                {!isThreadParent && message.isPinned && (
                   <div className="flex items-center gap-1 text-[10px] opacity-70 mb-1">
                     <Pin className="w-3 h-3 fill-current" />
                     <span>Pinned</span>
@@ -127,6 +132,21 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             </div>
           </div>
 
+          {/* Reply Count Indicator */}
+          {!isThreadParent && !message.deleted && message.replyCount && message.replyCount > 0 ? (
+            <div className={cn("flex mt-1", isOwnMessage ? "justify-end mr-2" : "justify-start ml-2")}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 px-2 text-[10px] text-primary hover:text-primary/80 bg-primary/10 rounded-full"
+                onClick={() => onReply?.(message)}
+              >
+                <MessageSquare className="w-3 h-3 mr-1" />
+                {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
+              </Button>
+            </div>
+          ) : null}
+
           {/* Moderation Menu - only show if not deleted and user has permissions */}
           {!message.deleted && currentUserRole && organizationId && groupId && (
             <div className={cn(
@@ -143,6 +163,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 onMessageDeleted={onMessageDeleted}
                 onTogglePin={onTogglePin}
                 onEditMessage={onEditMessage}
+                onReply={onReply}
               />
             </div>
           )}

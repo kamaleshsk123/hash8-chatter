@@ -36,6 +36,7 @@ interface MessageModerationMenuProps {
   onMessageDeleted?: () => void;
   onTogglePin?: (messageId: string, isPinned: boolean) => void;
   onEditMessage?: (message: Message) => void;
+  onReply?: (message: Message) => void;
 }
 
 export const MessageModerationMenu: React.FC<MessageModerationMenuProps> = ({
@@ -48,6 +49,7 @@ export const MessageModerationMenu: React.FC<MessageModerationMenuProps> = ({
   onMessageDeleted,
   onTogglePin,
   onEditMessage,
+  onReply,
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
@@ -141,15 +143,9 @@ export const MessageModerationMenu: React.FC<MessageModerationMenuProps> = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuItem onClick={() => {
-            // In a real app, this would trigger a reply state in Chat.tsx
-            toast({
-              title: 'Reply',
-              description: 'Reply feature coming soon to group chats!',
-            });
-          }}>
+          <DropdownMenuItem onClick={() => onReply?.(message)}>
             <Reply className="w-4 h-4 mr-2" />
-            Reply
+            Reply in Thread
           </DropdownMenuItem>
           
           <DropdownMenuItem onClick={handleCopyText}>

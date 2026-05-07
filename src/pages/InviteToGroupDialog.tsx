@@ -38,7 +38,7 @@ interface Member {
 
 interface UserProfile {
   userId: string;
-  displayName: string;
+  name?: string;
   avatar?: string;
 }
 
@@ -86,7 +86,7 @@ export const InviteToGroupDialog: React.FC<InviteToGroupDialogProps> = ({
       const nonGroupMembers = orgMembers.filter(
         (member: Member) => !group.members.includes(member.userId)
       );
-      setMembers(nonGroupMembers);
+      setMembers(nonGroupMembers as Member[]);
 
       // Fetch user profiles
       const userIds = nonGroupMembers
@@ -115,7 +115,7 @@ export const InviteToGroupDialog: React.FC<InviteToGroupDialogProps> = ({
   // Filter members based on search term
   const filteredMembers = members.filter((member) => {
     const profile = userProfiles[member.userId];
-    const displayName = profile?.displayName || member.userId || "";
+    const displayName = profile?.name || member.userId || "";
     return displayName.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
@@ -216,10 +216,10 @@ export const InviteToGroupDialog: React.FC<InviteToGroupDialogProps> = ({
                         <div className="flex items-center space-x-2">
                           <Avatar>
                             <AvatarFallback>
-                              {profile?.displayName?.charAt(0) || "U"}
+                              {profile?.name?.charAt(0) || "U"}
                             </AvatarFallback>
                           </Avatar>
-                          <span>{profile?.displayName || member.userId}</span>
+                          <span>{profile?.name || member.userId}</span>
                         </div>
                         <Checkbox checked={selectedMembers.has(member.userId)} />
                       </div>
