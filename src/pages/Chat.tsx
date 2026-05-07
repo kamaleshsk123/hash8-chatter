@@ -1104,7 +1104,8 @@ const Chat = () => {
           </div>
           {/* Main chat scrollable area */}
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto bg-background px-2 sm:px-4 lg:px-0">
+            <div className="flex-1 overflow-y-auto bg-background px-2 sm:px-4 lg:px-0 flex flex-col">
+              <div className="flex-1" />
               <div className="py-4 px-2 w-full">
                 {messagesLoading ? (
                   <div className="flex items-center justify-center h-32">
