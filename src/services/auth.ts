@@ -3,7 +3,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   signOut as firebaseSignOut,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebaseConfig';
@@ -58,6 +59,15 @@ export const signOutUser = async () => {
     await firebaseSignOut(auth);
   } catch (error) {
     console.error("Error signing out:", error);
+    throw error;
+  }
+};
+
+export const resetPassword = async (email: string) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
     throw error;
   }
 };

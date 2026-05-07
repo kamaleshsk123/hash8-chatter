@@ -17,14 +17,26 @@ import { db } from './firebaseConfig';
 // Get user profiles for an array of userIds from /users collection
 export const getUsersByIds = async (userIds: string[]) => {
   if (!userIds.length) return [];
-  const results = [];
-  for (const userId of userIds) {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    if (userDoc.exists()) {
-      results.push({ userId, ...userDoc.data() });
-    }
+  
+  // Firestore "in" query is limited to 30 items per query
+  const batches = [];
+  for (let i = 0; i < userIds.length; i += 30) {
+    batches.push(userIds.slice(i, i + 30));
   }
-  return results.filter(Boolean);
+  
+  const results: any[] = [];
+  
+  // Run batches in parallel for better performance
+  const batchPromises = batches.map(async (batch) => {
+    const q = query(collection(db, "users"), where("__name__", "in", batch));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ userId: doc.id, ...doc.data() }));
+  });
+  
+  const barchResults = await Promise.all(batchPromises);
+  barchResults.forEach(batchResult => results.push(...batchResult));
+  
+  return results;
 };
 
 // Update user profile

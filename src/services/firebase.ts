@@ -27,7 +27,8 @@ export {
   signInWithEmail, 
   registerWithEmail, 
   signOutUser, 
-  upsertUserProfile 
+  upsertUserProfile,
+  resetPassword 
 } from './auth';
 
 // === Organizations ===
