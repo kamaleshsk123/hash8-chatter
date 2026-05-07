@@ -451,17 +451,10 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
                     }`}>
                     <div className="relative">
                       <Avatar className="w-8 h-8">
-                        {avatarUrl ? (
-                          <img
-                            src={avatarUrl}
-                            alt={displayName}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {displayName.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        )}
+                        <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {displayName.charAt(0).toUpperCase()}
+                        </AvatarFallback>
                       </Avatar>
                       <div
                         className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}

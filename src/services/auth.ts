@@ -69,12 +69,17 @@ export const upsertUserProfile = async (user: {
   photoURL?: string;
 }) => {
   if (!user.uid) return;
-  await setDoc(
-    doc(db, "users", user.uid),
-    {
-      displayName: user.displayName || "",
-      avatar: user.photoURL || "",
-    },
-    { merge: true }
-  );
+
+  const updates: any = {};
+  if (user.displayName) updates.displayName = user.displayName;
+  if (user.photoURL) updates.avatar = user.photoURL;
+
+  // Only update if there are actual values to sync
+  if (Object.keys(updates).length > 0) {
+    await setDoc(
+      doc(db, "users", user.uid),
+      updates,
+      { merge: true }
+    );
+  }
 };

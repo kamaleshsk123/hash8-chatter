@@ -923,17 +923,10 @@ const Chat = () => {
                                   className="flex items-center gap-3"
                                 >
                                   <Avatar className="w-9 h-9">
-                                    {avatarUrl ? (
-                                      <img
-                                        src={avatarUrl}
-                                        alt={displayName}
-                                        className="w-9 h-9 rounded-full object-cover"
-                                      />
-                                    ) : (
-                                      <AvatarFallback className="bg-primary/10 text-primary">
-                                        {displayName.charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                    )}
+                                    <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                                    <AvatarFallback className="bg-primary/10 text-primary">
+                                      {displayName.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-grow">
                                     <p className="font-semibold">
