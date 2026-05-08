@@ -20,6 +20,7 @@ import { MessageReactions } from "@/components/MessageReactions";
 import { ReplyToMessage } from "@/components/ReplyToMessage";
 import { EmojiPickerComponent } from "@/components/EmojiPicker";
 import { formatChatDate, isSameDay } from "@/utils/dateUtils";
+import { PollBubble } from "@/components/PollBubble";
 
 interface Message {
   id: string;
@@ -28,7 +29,12 @@ interface Message {
   senderName: string;
   senderAvatar?: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'file' | 'audio' | 'document';
+  type: 'text' | 'image' | 'file' | 'audio' | 'document' | 'poll';
+  pollData?: {
+    question: string;
+    options: { id: string; text: string; userIds: string[] }[];
+    allowMultipleAnswers: boolean;
+  };
   readBy: Array<{
     userId: string;
     userName: string;
@@ -61,6 +67,7 @@ interface Message {
 
 interface MessageListProps {
   messages: Message[];
+  conversationId: string;
   user: any;
   otherUser: any;
   isLoading: boolean;
@@ -73,10 +80,12 @@ interface MessageListProps {
   handleReplyClick: (messageId: string) => void;
   handleTogglePin: (messageId: string, isPinned: boolean) => void;
   onOpenThread?: (message: Message) => void;
+  onViewVoters?: (message: Message) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
   messages,
+  conversationId,
   user,
   otherUser,
   isLoading,
@@ -89,6 +98,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   handleReplyClick,
   handleTogglePin,
   onOpenThread,
+  onViewVoters,
 }) => {
   return (
     <ScrollArea className="flex-1 p-4">
@@ -200,7 +210,14 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </div>
                           )}
                           
-                          {(message.text || (!message.fileUrl && !message.text)) && (
+                          {(message.type === 'poll' && message.pollData) ? (
+                            <PollBubble 
+                              message={message as any} 
+                              groupId={conversationId}
+                              isOwnMessage={isOwnMessage}
+                              onViewVoters={() => onViewVoters?.(message as any)}
+                            />
+                          ) : (message.text || (!message.fileUrl && !message.text)) && (
                             <p className="text-sm whitespace-pre-wrap break-words">
                               {message.deleted ? (
                                 <span className="text-muted-foreground italic">This message has been deleted</span>

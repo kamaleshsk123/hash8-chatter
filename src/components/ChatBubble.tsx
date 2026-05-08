@@ -8,6 +8,7 @@ import { MessageReadReceipts } from "@/components/MessageReadReceipts";
 import { MessageModerationMenu } from "@/components/moderation/MessageModerationMenu";
 import { Clock, Wifi, WifiOff, Pin, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PollBubble } from "./PollBubble";
 
 interface ChatBubbleProps {
   message: Message;
@@ -20,6 +21,7 @@ interface ChatBubbleProps {
   onEditMessage?: (message: Message) => void;
   onReply?: (message: Message) => void;
   isThreadParent?: boolean;
+  onViewVoters?: (message: Message) => void;
 }
 
 export const ChatBubble: React.FC<ChatBubbleProps> = ({
@@ -33,6 +35,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   onEditMessage,
   onReply,
   isThreadParent = false,
+  onViewVoters,
 }) => {
   const { user } = useAuth();
   const isOwnMessage = message.senderId === user?.uid;
@@ -102,14 +105,25 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                     <span>Pinned</span>
                   </div>
                 )}
-                <p className="text-sm leading-relaxed">
-                  {message.text}
-                  {message.isEdited && (
-                    <span className="text-[10px] opacity-50 ml-1 italic font-normal">
-                      (edited)
-                    </span>
-                  )}
-                </p>
+                
+                {message.pollData ? (
+                  <PollBubble 
+                    message={message} 
+                    organizationId={organizationId} 
+                    groupId={groupId} 
+                    isOwnMessage={isOwnMessage}
+                    onViewVoters={() => onViewVoters?.(message)}
+                  />
+                ) : (
+                  <p className="text-sm leading-relaxed">
+                    {message.text}
+                    {message.isEdited && (
+                      <span className="text-[10px] opacity-50 ml-1 italic font-normal">
+                        (edited)
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
             )}
 
