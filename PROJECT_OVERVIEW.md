@@ -33,14 +33,15 @@
 | Tier | Feature | Why It Matters | Rough Effort |
 |------|----------|----------------|--------------|
 | **P0** (must‑do) | Technical Debt Cleanup | ✅ **COMPLETE** | 2‑4 days total |
-| **P1** | Push Notifications (Web Push + FCM) | **NEXT UP** | 2‑3 days |
-| **P2** | Global Search (messages, users, posts) | **PLANNED** | 2 days |
+| **P1** | Push Notifications (Web Push + FCM) | ✅ **COMPLETE** | 2‑3 days |
+| **P2** | Global Search (messages, users, posts) | ✅ **COMPLETE** | 2 days |
 | **P3** | Pinned Messages | ✅ **COMPLETE** | Persistent sidebar + highlight |
-| **P4** | Message Threads | ✅ **WORKING** | UI refinements & logic added |
-| **P5** | Audio/Video Calls (WebRTC) | Differentiator for an intranet‑messaging platform. | 5‑7 days |
-| **P6** | PWA / Installable App | Offline‑first experience, native‑like feel. | 2‑3 days |
-| **P7** | Polls & Surveys | Simple collaboration tool for teams. | 2‑3 days |
-| **P8** | Shared Calendar / Events | Central scheduling; complements chat & feed. | 3‑4 days |
+| **P4** | Message Threads | ✅ **COMPLETE** | UI refinements & logic added |
+| **P5** | Audio/Video Calls (WebRTC) | ⏸️ **PAUSED** | 5‑7 days |
+| **P6** | PWA / Installable App | ⏸️ **PAUSED** | 2‑3 days |
+| **P7** | Polls & Surveys | ✅ **COMPLETE** | Interactive UI + live results |
+| **P8** | Shared Calendar / Events | **NEXT UP** | 3‑4 days |
+| **P9** | Task Management | **PLANNED** | 2-3 days |
 
 ## 4️⃣ Suggested Next Steps
 1. **Sprint 1 – Technical Debt** (✅ **COMPLETED**)
@@ -50,16 +51,18 @@
    - Remove the auto‑Bluetooth call or gate it behind a user action.
    - Optimize `getUsersByIds` with batched queries.
    - Wire notification switches and security features in `UserProfile.tsx`.
-2. **Sprint 2 – Core UX Boost** (🚀 **CURRENT**)
+2. **Sprint 2 – Core UX Boost** (✅ **COMPLETED**)
    - Implement Message Threads (UI refined, parent message simplified).
    - Enhance Pinned Messages (Persistent sidebar with auto-scroll & highlight).
-   - Implement Global Search (NEXT UP).
-   - Initial work on Push Notifications (PLANNED).
-3. **Sprint 3 – Advanced Features**
-   - Begin Audio/Video Call integration (WebRTC).
-   - Optionally enable PWA support and Polls.
+   - Implement Global Search (✅ **COMPLETED**).
+   - Integrate Push Notifications via FCM (✅ **COMPLETED**).
+3. **Sprint 3 – Advanced Features** (🚀 **CURRENT**)
+   - Implement Polls & Surveys (✅ **COMPLETED**).
+   - Implement Shared Calendar / Events (NEXT UP).
+   - Implement Task Management (PLANNED).
+   - *Note: Audio/Video Call integration (WebRTC) and PWA support are currently paused.*
 
-> **Bottom line:** With the stability fixes and core UI refinements (Threads & Pins) complete, the focus shifts to Global Search and Push Notifications to round out the professional messaging experience.
+> **Bottom line:** With Polls and Surveys successfully integrated with a premium UI and live results, the application provides a highly polished core chat experience. The focus now shifts toward planning and coordination features, starting with the Shared Calendar.
 
 ---
-*Generated on 2026‑05‑07*
+*Generated on 2026‑05‑08*

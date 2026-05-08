@@ -177,8 +177,9 @@ export const sendGroupMessage = async (orgId: string, groupId: string, messageDa
   senderId: string;
   senderName: string;
   senderAvatar?: string;
-  type?: 'text' | 'image' | 'file';
+  type?: 'text' | 'image' | 'file' | 'poll';
   parentMessageId?: string;
+  pollData?: any;
 }) => {
   try {
     const messageId = generateUUID();
@@ -196,7 +197,8 @@ export const sendGroupMessage = async (orgId: string, groupId: string, messageDa
       reactions: [],
       isEdited: false,
       readBy: [],
-      parentMessageId: messageData.parentMessageId || null
+      parentMessageId: messageData.parentMessageId || null,
+      ...(messageData.type === 'poll' && messageData.pollData ? { pollData: messageData.pollData } : {})
     };
     
     await setDoc(messageRef, messageDoc);
@@ -263,7 +265,8 @@ export const subscribeToGroupMessages = (
         isPinned: data.isPinned || false,
         pinnedBy: data.pinnedBy,
         pinnedAt: data.pinnedAt?.toDate(),
-        hasPendingWrites: doc.metadata.hasPendingWrites // Added for offline support
+        hasPendingWrites: doc.metadata.hasPendingWrites, // Added for offline support
+        ...(data.type === 'poll' && data.pollData ? { pollData: data.pollData } : {})
       };
     });
     onSuccess(messages);
@@ -315,6 +318,50 @@ export const addGroupMessageReaction = async (orgId: string, groupId: string, me
     await updateDoc(messageRef, { reactions });
   } catch (error) {
     console.error('Error adding message reaction:', error);
+    throw error;
+  }
+};
+
+// Vote on a poll in a group message
+export const voteGroupPoll = async (orgId: string, groupId: string, messageId: string, optionId: string, userId: string) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    const messageDoc = await getDoc(messageRef);
+    
+    if (!messageDoc.exists()) {
+      throw new Error('Message not found');
+    }
+    
+    const messageData = messageDoc.data();
+    if (messageData.type !== 'poll' || !messageData.pollData) {
+      throw new Error('Message is not a poll');
+    }
+    
+    const pollData = messageData.pollData;
+    const allowMultiple = pollData.allowMultipleAnswers;
+    
+    // Process votes
+    pollData.options.forEach((option: any) => {
+      const userIndex = option.userIds.indexOf(userId);
+      
+      if (option.id === optionId) {
+        // Target option: Toggle vote
+        if (userIndex >= 0) {
+          // User already voted for this option, remove vote
+          option.userIds.splice(userIndex, 1);
+        } else {
+          // Add vote
+          option.userIds.push(userId);
+        }
+      } else if (!allowMultiple && userIndex >= 0) {
+        // If single choice, remove vote from other options
+        option.userIds.splice(userIndex, 1);
+      }
+    });
+    
+    await updateDoc(messageRef, { pollData });
+  } catch (error) {
+    console.error('Error voting on poll:', error);
     throw error;
   }
 };

@@ -30,6 +30,8 @@ import { MessageList } from '@/components/direct-message/MessageList';
 import { MessageInput } from '@/components/direct-message/MessageInput';
 import { ThreadView } from '@/components/ThreadView';
 import { PinnedMessagesSidebar } from '@/components/PinnedMessagesSidebar';
+import { CreatePollDialog } from '@/components/CreatePollDialog';
+import { PollVotersSidebar } from '@/components/PollVotersSidebar';
 
 interface DirectMessageProps {
   conversationId: string;
@@ -49,7 +51,12 @@ interface Message {
   senderName: string;
   senderAvatar?: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'file' | 'audio' | 'document';
+  type: 'text' | 'image' | 'file' | 'audio' | 'document' | 'poll';
+  pollData?: {
+    question: string;
+    options: { id: string; text: string; userIds: string[] }[];
+    allowMultipleAnswers: boolean;
+  };
   readBy: Array<{
     userId: string;
     userName: string;
@@ -100,6 +107,13 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [selectedThreadMessage, setSelectedThreadMessage] = useState<Message | null>(null);
   const [showPinnedSidebar, setShowPinnedSidebar] = useState(false);
+  const [isPollDialogOpen, setIsPollDialogOpen] = useState(false);
+  const [selectedPollIdForVoters, setSelectedPollIdForVoters] = useState<string | null>(null);
+
+  // Clear poll voters sidebar when switching conversations
+  useEffect(() => {
+    setSelectedPollIdForVoters(null);
+  }, [conversationId]);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [bluetoothStatus, setBluetoothStatus] = useState<{
     enabled: boolean;
@@ -462,6 +476,42 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
       toast({
         title: "Action Failed",
         description: editingMessageId ? "Failed to update message." : "Failed to send message.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handlePollSubmit = async (pollData: any) => {
+    if (!user) return;
+    
+    setIsSending(true);
+    try {
+      const messageData = {
+        text: `📊 Poll: ${pollData.question}`,
+        senderId: user.uid,
+        senderName: user.name || 'Unknown User',
+        senderAvatar: user.avatar || '',
+        type: 'poll' as const,
+        pollData: pollData
+      };
+
+      await hybridMessaging.sendMessage(
+        conversationId,
+        messageData,
+        isOnline
+      );
+
+      toast({
+        title: "Poll created",
+        description: "Your poll has been sent to the chat."
+      });
+    } catch (error) {
+      console.error('Error sending poll:', error);
+      toast({
+        title: "Failed to send poll",
+        description: "An error occurred while creating the poll.",
         variant: "destructive"
       });
     } finally {
@@ -884,6 +934,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
         <MessageList
           messages={messages.filter(m => !m.parentMessageId)}
+          conversationId={conversationId}
           user={user}
           otherUser={otherUser}
           isLoading={isLoading}
@@ -896,6 +947,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           handleReplyClick={handleReplyClick}
           handleTogglePin={handleTogglePin}
           onOpenThread={(msg) => setSelectedThreadMessage(msg as any)}
+          onViewVoters={(msg) => setSelectedPollIdForVoters(msg.id)}
         />
         {typingUsers.length > 0 && (
           <div className="px-4 py-2">
@@ -920,9 +972,22 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           handleEmojiSelect={handleEmojiSelect}
           cancelReply={cancelReply}
           cancelEditing={cancelEditing}
+          handleCreatePoll={() => setIsPollDialogOpen(true)}
           isOfflineMode={isOfflineMode}
         />
       </div>
+
+      <CreatePollDialog
+        isOpen={isPollDialogOpen}
+        onClose={() => setIsPollDialogOpen(false)}
+        onSubmit={handlePollSubmit}
+      />
+      {selectedPollIdForVoters && (
+        <PollVotersSidebar 
+          message={messages.find(m => m.id === selectedPollIdForVoters)! as any}
+          onClose={() => setSelectedPollIdForVoters(null)}
+        />
+      )}
 
       {selectedThreadMessage && (
         <ThreadView

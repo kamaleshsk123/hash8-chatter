@@ -15,7 +15,8 @@ interface HybridMessage {
   senderName: string;
   senderAvatar?: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'poll';
+  pollData?: any;
   transport: MessageTransport;
   needsFirebaseSync?: boolean;
   bluetoothSent?: boolean;
@@ -97,7 +98,8 @@ class HybridMessagingService {
           senderAvatar: messageData.senderAvatar,
           type: messageData.type,
           replyTo: messageData.replyTo,
-          id: messageId // Pass our locally generated ID to Firebase
+          id: messageId, // Pass our locally generated ID to Firebase
+          pollData: (messageData as any).pollData
         });
 
         message.transport = 'firebase';
@@ -199,7 +201,8 @@ class HybridMessagingService {
                 senderName: message.senderName,
                 senderAvatar: message.senderAvatar,
                 type: message.type,
-                replyTo: message.replyTo
+                replyTo: message.replyTo,
+                pollData: message.pollData
               });
 
               // Remove from cache after successful sync

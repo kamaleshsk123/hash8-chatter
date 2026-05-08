@@ -47,7 +47,10 @@ import {
   X,
   Edit2,
   MessageSquare,
+  BarChart2,
 } from "lucide-react";
+import { CreatePollDialog } from "@/components/CreatePollDialog";
+import { PollVotersSidebar } from "@/components/PollVotersSidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -247,6 +250,8 @@ const Chat = () => {
     useState<any>(null);
   const [selectedThreadMessage, setSelectedThreadMessage] = useState<Message | null>(null);
   const [showPinnedSidebar, setShowPinnedSidebar] = useState(false);
+  const [isPollDialogOpen, setIsPollDialogOpen] = useState(false);
+  const [selectedPollIdForVoters, setSelectedPollIdForVoters] = useState<string | null>(null);
   const refreshOrganizationsRef = useRef<() => void>(() => {});
 
   // Function to update URL with current state
@@ -261,6 +266,11 @@ const Chat = () => {
     }
     setSearchParams(params);
   };
+
+  // Clear poll voters sidebar when switching chats
+  useEffect(() => {
+    setSelectedPollIdForVoters(null);
+  }, [selectedOrg?.id, selectedGroup?.id, view]);
 
   const handleSearchResult = (type: 'chat' | 'feed' | 'direct_message' | 'your-feed', id: string, extra?: any) => {
     setView(type as any);
@@ -592,6 +602,36 @@ const Chat = () => {
       setGroupMemberStatuses({});
     }
   }, [selectedGroup, toast]);
+
+  const handlePollSubmit = async (pollData: any) => {
+    if (!user || !selectedOrg || !selectedGroup) return;
+
+    setSendingMessage(true);
+    try {
+      await sendGroupMessage(selectedOrg.id, selectedGroup.id, {
+        text: `📊 Poll: ${pollData.question}`,
+        senderId: user.uid,
+        senderName: user.name || "Unknown User",
+        senderAvatar: user.avatar || "",
+        type: "poll",
+        pollData: pollData
+      });
+
+      toast({
+        title: "Poll created",
+        description: "Your poll has been sent to the group.",
+      });
+    } catch (error) {
+      console.error("Error creating poll:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create poll.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user || sendingMessage) return;
@@ -1172,6 +1212,7 @@ const Chat = () => {
                               }}
                               onMessageDeleted={() => {}}
                               onReply={(msg) => setSelectedThreadMessage(msg)}
+                              onViewVoters={(msg) => setSelectedPollIdForVoters(msg.id)}
                             />
                           </div>
                         );
@@ -1214,6 +1255,15 @@ const Chat = () => {
                   />
                 </div>
                 <Button
+                  onClick={() => setIsPollDialogOpen(true)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                  title="Create a poll"
+                >
+                  <BarChart2 className="w-5 h-5" />
+                </Button>
+                <Button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim()}
                   size="icon"
@@ -1242,6 +1292,17 @@ const Chat = () => {
             />
           )}
         </div>
+      )}
+      <CreatePollDialog 
+        isOpen={isPollDialogOpen}
+        onClose={() => setIsPollDialogOpen(false)}
+        onSubmit={handlePollSubmit}
+      />
+      {selectedPollIdForVoters && (
+        <PollVotersSidebar 
+          message={messages.find(m => m.id === selectedPollIdForVoters)!}
+          onClose={() => setSelectedPollIdForVoters(null)}
+        />
       )}
     </div>
   );

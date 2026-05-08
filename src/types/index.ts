@@ -64,7 +64,16 @@ export interface Message {
   senderAvatar?: string;
   text: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'file' | 'system';
+  type: 'text' | 'image' | 'file' | 'system' | 'poll';
+  pollData?: {
+    question: string;
+    options: {
+      id: string;
+      text: string;
+      userIds: string[];
+    }[];
+    allowMultipleAnswers: boolean;
+  };
   reactions?: Reaction[];
   isEdited?: boolean;
   readBy?: ReadReceipt[];
