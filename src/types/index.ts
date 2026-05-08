@@ -13,6 +13,13 @@ export interface User {
   location?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  notifications?: {
+    desktop?: boolean;
+    sound?: boolean;
+    email?: boolean;
+    pushEnabled?: boolean;
+  };
+  fcmTokens?: string[];
 }
 
 export type UserRole = 'admin' | 'moderator' | 'member';
@@ -57,7 +64,16 @@ export interface Message {
   senderAvatar?: string;
   text: string;
   timestamp: Date;
-  type: 'text' | 'image' | 'file' | 'system';
+  type: 'text' | 'image' | 'file' | 'system' | 'poll';
+  pollData?: {
+    question: string;
+    options: {
+      id: string;
+      text: string;
+      userIds: string[];
+    }[];
+    allowMultipleAnswers: boolean;
+  };
   reactions?: Reaction[];
   isEdited?: boolean;
   readBy?: ReadReceipt[];
@@ -66,7 +82,12 @@ export interface Message {
   deletedAt?: Date;
   deletionReason?: string;
   originalText?: string;
+  isPinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: Date;
   hasPendingWrites?: boolean; // Added for offline support
+  parentMessageId?: string; // For threads
+  replyCount?: number;      // Number of replies in the thread
 }
 
 export interface ReadReceipt {

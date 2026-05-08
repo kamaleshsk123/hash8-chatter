@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreVertical } from "lucide-react";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { MoreVertical, Pin, PinOff } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -22,9 +22,16 @@ interface DirectMessageHeaderProps {
     role?: string;
   };
   onClearChat?: () => void; // optional callback to clear chat
+  messages?: any[];
+  onTogglePinnedSidebar?: () => void;
 }
 
-export const DirectMessageHeader: React.FC<DirectMessageHeaderProps> = ({ otherUser, onClearChat }) => {
+export const DirectMessageHeader: React.FC<DirectMessageHeaderProps> = ({
+  otherUser,
+  onClearChat,
+  messages = [],
+  onTogglePinnedSidebar
+}) => {
   const [showClearDialog, setShowClearDialog] = useState(false);
 
   return (
@@ -45,41 +52,54 @@ export const DirectMessageHeader: React.FC<DirectMessageHeaderProps> = ({ otherU
         </div>
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="p-2">
-            <MoreVertical className="h-4 w-4" />
+      <div className="flex items-center gap-2">
+        {onTogglePinnedSidebar && (
+          <Button variant="ghost" size="icon" className="relative" onClick={onTogglePinnedSidebar}>
+            <Pin className="h-4 w-4" />
+            {messages.filter(m => m.isPinned).length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow-sm">
+                {messages.filter(m => m.isPinned).length}
+              </span>
+            )}
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setShowClearDialog(true)}>
-            Clear Chat
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        )}
 
-      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Clear Chat</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will delete all messages in this conversation. They can be recovered within 6 months.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => {
-                if (onClearChat) onClearChat();
-                setShowClearDialog(false);
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Clear
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="p-2">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setShowClearDialog(true)}>
+              Clear Chat
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Clear Chat</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will delete all messages in this conversation. They can be recovered within 6 months.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (onClearChat) onClearChat();
+                  setShowClearDialog(false);
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Clear
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 };

@@ -77,15 +77,16 @@ export const createOrGetDirectMessage = async (userId1: string, userId2: string)
   }
 };
 
-// Send a direct message
 export const sendDirectMessage = async (conversationId: string, messageData: {
   text: string;
   senderId: string;
   senderName: string;
   senderAvatar?: string;
-  type?: 'text' | 'image' | 'file';
+  type?: 'text' | 'image' | 'file' | 'poll';
   replyTo?: any;
   id?: string; // Optional pre-generated ID
+  parentMessageId?: string; // Added for threads
+  pollData?: any;
 }) => {
   try {
     const messageId = messageData.id || generateUUID();
@@ -102,7 +103,10 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
       timestamp: serverTimestamp(),
       readBy: [], // Array to track who has read the message
       isRead: false, // Legacy field for backward compatibility
-      reactions: {}
+      reactions: {},
+      parentMessageId: messageData.parentMessageId || null,
+      replyCount: 0,
+      ...(messageData.type === 'poll' && messageData.pollData ? { pollData: messageData.pollData } : {})
     };
 
     // Add reply data if present
@@ -111,6 +115,18 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
     }
     
     await setDoc(messageRef, messageDoc);
+    
+    // If it's a reply in a thread, increment the parent's reply count
+    if (messageData.parentMessageId) {
+      const parentRef = doc(db, `direct_messages/${conversationId}/messages`, messageData.parentMessageId);
+      const parentDoc = await getDoc(parentRef);
+      if (parentDoc.exists()) {
+        const currentCount = parentDoc.data().replyCount || 0;
+        await updateDoc(parentRef, {
+          replyCount: currentCount + 1
+        });
+      }
+    }
     
     // Update conversation's lastActivity, lastMessage and unreadCount for recipient
     const conversationRef = doc(db, 'direct_messages', conversationId);
@@ -165,7 +181,10 @@ export const getDirectMessages = async (conversationId: string, limitCount: numb
     return snapshot.docs.map(doc => ({ 
       id: doc.id, 
       ...doc.data(),
-      timestamp: doc.data().timestamp?.toDate() || new Date()
+      timestamp: doc.data().timestamp?.toDate() || new Date(),
+      isPinned: doc.data().isPinned || false,
+      pinnedBy: doc.data().pinnedBy,
+      pinnedAt: doc.data().pinnedAt?.toDate()
     }));
   } catch (error) {
     console.error('Error getting direct messages:', error);
@@ -203,7 +222,13 @@ export const subscribeToDirectMessages = (
         isEdited: data.isEdited || false,
         editedAt: data.editedAt?.toDate(),
         replyTo: data.replyTo,
-        hasPendingWrites: doc.metadata.hasPendingWrites // Added for offline support
+        parentMessageId: data.parentMessageId,
+        replyCount: data.replyCount || 0,
+        isPinned: data.isPinned || false,
+        pinnedBy: data.pinnedBy,
+        pinnedAt: data.pinnedAt?.toDate(),
+        hasPendingWrites: doc.metadata.hasPendingWrites, // Added for offline support
+        ...(data.type === 'poll' && data.pollData ? { pollData: data.pollData } : {})
       };
 
       // Add reply reference if replying
@@ -430,6 +455,50 @@ export const addMessageReaction = async (
   }
 };
 
+// Vote on a poll in a direct message
+export const voteDirectMessagePoll = async (conversationId: string, messageId: string, optionId: string, userId: string) => {
+  try {
+    const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
+    const messageDoc = await getDoc(messageRef);
+    
+    if (!messageDoc.exists()) {
+      throw new Error('Message not found');
+    }
+    
+    const messageData = messageDoc.data();
+    if (messageData.type !== 'poll' || !messageData.pollData) {
+      throw new Error('Message is not a poll');
+    }
+    
+    const pollData = messageData.pollData;
+    const allowMultiple = pollData.allowMultipleAnswers;
+    
+    // Process votes
+    pollData.options.forEach((option: any) => {
+      const userIndex = option.userIds.indexOf(userId);
+      
+      if (option.id === optionId) {
+        // Target option: Toggle vote
+        if (userIndex >= 0) {
+          // User already voted for this option, remove vote
+          option.userIds.splice(userIndex, 1);
+        } else {
+          // Add vote
+          option.userIds.push(userId);
+        }
+      } else if (!allowMultiple && userIndex >= 0) {
+        // If single choice, remove vote from other options
+        option.userIds.splice(userIndex, 1);
+      }
+    });
+    
+    await updateDoc(messageRef, { pollData });
+  } catch (error) {
+    console.error('Error voting on poll:', error);
+    throw error;
+  }
+};
+
 // Edit message
 export const editDirectMessage = async (
   conversationId: string,
@@ -619,4 +688,24 @@ export const subscribeToConversations = (
     }));
     onUpdate(conversations);
   });
+};
+
+// Toggle pin status of a direct message
+export const togglePinDirectMessage = async (
+  conversationId: string,
+  messageId: string,
+  userId: string,
+  isPinned: boolean
+) => {
+  try {
+    const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      isPinned,
+      pinnedBy: isPinned ? userId : null,
+      pinnedAt: isPinned ? serverTimestamp() : null
+    });
+  } catch (error) {
+    console.error('Error toggling direct message pin:', error);
+    throw error;
+  }
 };

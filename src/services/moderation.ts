@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { generateUUID } from '@/utils/uuid';
+import { ModerationAction } from '@/types';
 
 // === MODERATOR ROLE MANAGEMENT ===
 
@@ -49,7 +50,7 @@ export const getModerationActions = async (orgId: string, limitCount: number = 5
       id: doc.id,
       ...doc.data(),
       timestamp: doc.data().timestamp?.toDate() || new Date()
-    }));
+    } as ModerationAction));
   } catch (error) {
     console.error('Error getting moderation actions:', error);
     return [];

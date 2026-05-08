@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,21 +22,26 @@ import {
   Building2,
   Users,
   MessageSquare,
-  Clock,
   Shield,
   Settings,
-  Bell,
-  Lock,
-  Globe,
-  Moon,
   Sun,
+  Moon,
   Monitor,
+  CreditCard,
+  BadgeCheck,
+  Loader2,
+  Bell,
+  Globe,
+  Clock,
+  Lock,
+  Edit2
 } from "lucide-react";
+import { requestNotificationPermission } from "@/services/notifications";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/hooks/use-toast";
 import { uploadImageToCloudinary } from "@/services/cloudinary";
-import { updateUserProfile, getUserOrganizations, getUserRoleInOrganization } from "@/services/firebase";
+import { updateUserProfile, getUserOrganizations, getUserRoleInOrganization, resetPassword, signOutUser } from "@/services/firebase";
 
 interface UserProfileProps {
   onClose: () => void;
@@ -44,7 +49,7 @@ interface UserProfileProps {
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   const { user, refreshUser } = useAuth();
-  const { theme, setTheme, actualTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +68,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
     department: user?.department || "",
     bio: user?.bio || "",
     location: user?.location || "",
+    notifications: {
+      desktop: user?.notifications?.desktop ?? true,
+      pushEnabled: user?.notifications?.pushEnabled ?? false,
+      sound: user?.notifications?.sound ?? true,
+      email: user?.notifications?.email ?? false,
+    }
   });
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,8 +104,62 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleNotificationChange = (key: string, value: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        [key]: value
+      }
+    }));
+  };
+
+  const handleRequestPermission = async () => {
+    if (!user) return;
+    const token = await requestNotificationPermission(user.uid);
+    if (token) {
+      setFormData(prev => ({
+        ...prev,
+        notifications: { ...prev.notifications, pushEnabled: true }
+      }));
+      toast({
+        title: "Notifications Enabled",
+        description: "You will now receive desktop notifications.",
+      });
+    } else {
+      toast({
+        title: "Permission Denied",
+        description: "Please enable notifications in your browser settings.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!user?.email) return;
+    try {
+      await resetPassword(user.email);
+      toast({ 
+        title: "Reset Link Sent", 
+        description: `A password reset email has been sent to ${user.email}.` 
+      });
+    } catch {
+      toast({ title: "Error", description: "Failed to send reset email.", variant: "destructive" });
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+      onClose();
+      toast({ title: "Signed out", description: "You have been signed out." });
+    } catch {
+      toast({ title: "Error", description: "Failed to sign out.", variant: "destructive" });
+    }
   };
 
   // Fetch user organizations when component mounts or when organizations tab is accessed
@@ -207,6 +272,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                     department: user?.department || "",
                     bio: user?.bio || "",
                     location: user?.location || "",
+                    notifications: {
+                      desktop: user?.notifications?.desktop ?? true,
+                      pushEnabled: user?.notifications?.pushEnabled ?? false,
+                      sound: user?.notifications?.sound ?? true,
+                      email: user?.notifications?.email ?? false,
+                    }
                   });
                 } else {
                   setIsEditing(true);
@@ -426,11 +497,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                               <p className="text-sm text-muted-foreground">
                                 {org.description || "No description available"}
                               </p>
-                              {org.createdAt && (
-                                <p className="text-xs text-muted-foreground">
-                                  Joined {new Date(org.createdAt).toLocaleDateString()}
-                                </p>
-                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -470,11 +536,34 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MessageSquare className="h-5 w-5" />
-                    Activity & Stats
+                    Activity
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Activity stats coming soon...</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground uppercase mb-1">Organizations</p>
+                      <p className="text-2xl font-bold">{organizations.length}</p>
+                    </div>
+                    <div className="p-4 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground uppercase mb-1">Member Since</p>
+                      <p className="text-lg font-bold">
+                        {user?.createdAt ? new Date(user.createdAt).getFullYear() : "2026"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <Label className="text-xs text-muted-foreground uppercase">Recent Activity</Label>
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Profile Updated</p>
+                        <p className="text-xs text-muted-foreground">Just now</p>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -528,24 +617,42 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium">Desktop Notifications</p>
-                          <p className="text-xs text-muted-foreground">Receive notifications on your desktop</p>
+                          <p className="text-sm font-medium">Push Notifications</p>
+                          <p className="text-xs text-muted-foreground">Receive browser notifications</p>
                         </div>
-                        <Switch />
+                        <Switch 
+                          checked={formData.notifications.pushEnabled}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              handleRequestPermission();
+                            } else {
+                              setFormData(prev => ({
+                                ...prev,
+                                notifications: { ...prev.notifications, pushEnabled: false }
+                              }));
+                            }
+                          }}
+                        />
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium">Sound Notifications</p>
                           <p className="text-xs text-muted-foreground">Play sound for new messages</p>
                         </div>
-                        <Switch />
+                        <Switch 
+                          checked={formData.notifications.sound}
+                          onCheckedChange={(checked) => handleNotificationChange("sound", checked)}
+                        />
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium">Email Notifications</p>
                           <p className="text-xs text-muted-foreground">Receive email for important updates</p>
                         </div>
-                        <Switch />
+                        <Switch 
+                          checked={formData.notifications.email}
+                          onCheckedChange={(checked) => handleNotificationChange("email", checked)}
+                        />
                       </div>
                     </div>
                   </div>
@@ -562,8 +669,28 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
                     Security & Privacy
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">Security settings coming soon...</p>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Password Management</p>
+                        <p className="text-xs text-muted-foreground">Update your account password</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={handleResetPassword}>
+                        Reset Password
+                      </Button>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-destructive">Account Session</p>
+                        <p className="text-xs text-muted-foreground">End your current session</p>
+                      </div>
+                      <Button variant="destructive" size="sm" onClick={handleSignOut}>
+                        Sign Out
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

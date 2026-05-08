@@ -20,9 +20,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { MoreVertical, Trash2, Flag, Shield } from 'lucide-react';
+import { MoreVertical, Trash2, Flag, Shield, Pin, PinOff, Reply, Edit2, Copy, Check } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
-import { deleteMessageAsModerator } from '@/services/firebase';
+import { deleteMessageAsModerator, deleteGroupMessage } from '@/services/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { UserRole, Message } from '@/types';
 
@@ -34,6 +34,9 @@ interface MessageModerationMenuProps {
   organizationId: string;
   groupId: string;
   onMessageDeleted?: () => void;
+  onTogglePin?: (messageId: string, isPinned: boolean) => void;
+  onEditMessage?: (message: Message) => void;
+  onReply?: (message: Message) => void;
 }
 
 export const MessageModerationMenu: React.FC<MessageModerationMenuProps> = ({
@@ -44,12 +47,16 @@ export const MessageModerationMenu: React.FC<MessageModerationMenuProps> = ({
   organizationId,
   groupId,
   onMessageDeleted,
+  onTogglePin,
+  onEditMessage,
+  onReply,
 }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const permissions = usePermissions(currentUserRole);
   const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
 
   const isOwnMessage = message.senderId === currentUserId;
   const canDeleteMessage = permissions.canDeleteMessages && !isOwnMessage;
@@ -94,10 +101,34 @@ export const MessageModerationMenu: React.FC<MessageModerationMenuProps> = ({
     }
   };
 
-  // Don't show menu if user has no moderation permissions or it's their own message
-  if (!canDeleteMessage) {
-    return null;
-  }
+  const canPinMessage = isOwnMessage || permissions.canDeleteMessages;
+
+  const handleCopyText = () => {
+    navigator.clipboard.writeText(message.text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({
+      title: 'Copied to clipboard',
+      description: 'Message text has been copied.',
+    });
+  };
+
+  const handleOwnDelete = async () => {
+    try {
+      await deleteGroupMessage(organizationId, groupId, message.id);
+      toast({
+        title: 'Message Deleted',
+        description: 'Your message has been deleted.',
+      });
+      onMessageDeleted?.();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete message.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
     <>
@@ -111,14 +142,69 @@ export const MessageModerationMenu: React.FC<MessageModerationMenuProps> = ({
             <MoreVertical className="w-3 h-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem 
-            onClick={() => setShowDeleteDialog(true)}
-            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Message
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => onReply?.(message)}>
+            <Reply className="w-4 h-4 mr-2" />
+            Reply in Thread
           </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={handleCopyText}>
+            {copied ? (
+              <Check className="w-4 h-4 mr-2 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4 mr-2" />
+            )}
+            Copy Text
+          </DropdownMenuItem>
+
+          {isOwnMessage && onEditMessage && (
+            <DropdownMenuItem onClick={() => onEditMessage(message)}>
+              <Edit2 className="w-4 h-4 mr-2" />
+              Edit Message
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuSeparator />
+
+          {onTogglePin && canPinMessage && (
+            <DropdownMenuItem onClick={() => onTogglePin(message.id, !message.isPinned)}>
+              {message.isPinned ? (
+                <>
+                  <PinOff className="w-4 h-4 mr-2" />
+                  Unpin Message
+                </>
+              ) : (
+                <>
+                  <Pin className="w-4 h-4 mr-2" />
+                  Pin Message
+                </>
+              )}
+            </DropdownMenuItem>
+          )}
+
+          {isOwnMessage && (
+            <DropdownMenuItem 
+              onClick={handleOwnDelete}
+              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Message
+            </DropdownMenuItem>
+          )}
+
+          {canDeleteMessage && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Moderator Delete
+              </DropdownMenuItem>
+            </>
+          )}
+          
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled>
             <Flag className="w-4 h-4 mr-2" />

@@ -172,13 +172,14 @@ export const getGroupMessages = async (orgId: string, groupId: string, limitCoun
   }
 };
 
-// Send a message to a group
 export const sendGroupMessage = async (orgId: string, groupId: string, messageData: {
   text: string;
   senderId: string;
   senderName: string;
   senderAvatar?: string;
-  type?: 'text' | 'image' | 'file';
+  type?: 'text' | 'image' | 'file' | 'poll';
+  parentMessageId?: string;
+  pollData?: any;
 }) => {
   try {
     const messageId = generateUUID();
@@ -195,10 +196,24 @@ export const sendGroupMessage = async (orgId: string, groupId: string, messageDa
       timestamp: serverTimestamp(),
       reactions: [],
       isEdited: false,
-      readBy: []
+      readBy: [],
+      parentMessageId: messageData.parentMessageId || null,
+      ...(messageData.type === 'poll' && messageData.pollData ? { pollData: messageData.pollData } : {})
     };
     
     await setDoc(messageRef, messageDoc);
+
+    // If it's a reply in a thread, increment the parent's reply count
+    if (messageData.parentMessageId) {
+      const parentRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageData.parentMessageId);
+      const parentDoc = await getDoc(parentRef);
+      if (parentDoc.exists()) {
+        const currentCount = parentDoc.data().replyCount || 0;
+        await updateDoc(parentRef, {
+          replyCount: currentCount + 1
+        });
+      }
+    }
     
     // Update group's lastActivity
     const groupRef = doc(db, `organizations/${orgId}/groups`, groupId);
@@ -245,7 +260,13 @@ export const subscribeToGroupMessages = (
         isEdited: data.isEdited || false,
         editedAt: data.editedAt?.toDate(),
         replyTo: data.replyTo,
-        hasPendingWrites: doc.metadata.hasPendingWrites // Added for offline support
+        parentMessageId: data.parentMessageId,
+        replyCount: data.replyCount || 0,
+        isPinned: data.isPinned || false,
+        pinnedBy: data.pinnedBy,
+        pinnedAt: data.pinnedAt?.toDate(),
+        hasPendingWrites: doc.metadata.hasPendingWrites, // Added for offline support
+        ...(data.type === 'poll' && data.pollData ? { pollData: data.pollData } : {})
       };
     });
     onSuccess(messages);
@@ -297,6 +318,50 @@ export const addGroupMessageReaction = async (orgId: string, groupId: string, me
     await updateDoc(messageRef, { reactions });
   } catch (error) {
     console.error('Error adding message reaction:', error);
+    throw error;
+  }
+};
+
+// Vote on a poll in a group message
+export const voteGroupPoll = async (orgId: string, groupId: string, messageId: string, optionId: string, userId: string) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    const messageDoc = await getDoc(messageRef);
+    
+    if (!messageDoc.exists()) {
+      throw new Error('Message not found');
+    }
+    
+    const messageData = messageDoc.data();
+    if (messageData.type !== 'poll' || !messageData.pollData) {
+      throw new Error('Message is not a poll');
+    }
+    
+    const pollData = messageData.pollData;
+    const allowMultiple = pollData.allowMultipleAnswers;
+    
+    // Process votes
+    pollData.options.forEach((option: any) => {
+      const userIndex = option.userIds.indexOf(userId);
+      
+      if (option.id === optionId) {
+        // Target option: Toggle vote
+        if (userIndex >= 0) {
+          // User already voted for this option, remove vote
+          option.userIds.splice(userIndex, 1);
+        } else {
+          // Add vote
+          option.userIds.push(userId);
+        }
+      } else if (!allowMultiple && userIndex >= 0) {
+        // If single choice, remove vote from other options
+        option.userIds.splice(userIndex, 1);
+      }
+    });
+    
+    await updateDoc(messageRef, { pollData });
+  } catch (error) {
+    console.error('Error voting on poll:', error);
     throw error;
   }
 };
@@ -463,5 +528,87 @@ export const markMultipleMessagesAsRead = async (
     await Promise.all(batch);
   } catch (error) {
     console.error('Error marking multiple messages as read:', error);
+  }
+};
+
+// Toggle pin status of a group message
+export const togglePinGroupMessage = async (
+  orgId: string,
+  groupId: string,
+  messageId: string,
+  userId: string,
+  isPinned: boolean
+) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      isPinned,
+      pinnedBy: isPinned ? userId : null,
+      pinnedAt: isPinned ? serverTimestamp() : null
+    });
+  } catch (error) {
+    console.error('Error toggling message pin:', error);
+    throw error;
+  }
+};
+
+// Delete a group message (for the message owner)
+export const deleteGroupMessage = async (
+  orgId: string,
+  groupId: string,
+  messageId: string
+) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      deleted: true,
+      deletedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error deleting group message:', error);
+    throw error;
+  }
+};
+
+// Edit a group message
+export const editGroupMessage = async (
+  orgId: string,
+  groupId: string,
+  messageId: string,
+  newText: string
+) => {
+  try {
+    const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
+    await updateDoc(messageRef, {
+      text: newText,
+      isEdited: true,
+      editedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error editing group message:', error);
+    throw error;
+  }
+};
+// Search for groups within an organization by name prefix
+export const searchGroups = async (orgId: string, searchTerm: string, limitCount = 5) => {
+  if (!orgId || !searchTerm || searchTerm.length < 2) return [];
+
+  try {
+    const groupsQuery = query(
+      collection(db, `organizations/${orgId}/groups`),
+      where('name', '>=', searchTerm),
+      where('name', '<=', searchTerm + '\uf8ff'),
+      orderBy('name'),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(groupsQuery);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error("Group search failed:", error);
+    return [];
   }
 };

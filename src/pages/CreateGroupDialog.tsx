@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
@@ -86,7 +86,7 @@ export const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
     setLoading(true);
     try {
       const orgMembers = await getOrganizationMembers(org.id);
-      setMembers(orgMembers);
+      setMembers(orgMembers as Member[]);
 
       // Fetch user profiles
       const userIds = orgMembers
@@ -309,9 +309,9 @@ export const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
                   </div>
                 ) : (
                   filteredMembers.map((member) => {
-                    const profile = userProfiles[member.userId] || {};
+                    const profile: any = userProfiles[member.userId] || {};
                     const displayName =
-                      profile.displayName || member.userId || "Unknown User";
+                      profile.name || member.userId || "Unknown User";
                     const isCurrentUser = member.userId === userId;
                     const isSelected = selectedMembers.has(member.userId);
 
@@ -331,17 +331,10 @@ export const CreateGroupDialog: React.FC<CreateGroupDialogProps> = ({
                           onChange={() => toggleMember(member.userId)}
                         />
                         <Avatar className="w-8 h-8">
-                          {profile.avatar ? (
-                            <img
-                              src={profile.avatar}
-                              alt={displayName}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                              {displayName.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          )}
+                          <AvatarImage src={profile.avatar} alt={displayName} className="object-cover" />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {displayName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">

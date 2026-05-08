@@ -154,14 +154,14 @@ export const GroupInfoSheet: React.FC<GroupInfoSheetProps> = ({
           <div className="flex items-center">
             {members.slice(0, 5).map((m, index) => (
               <div
-                key={m.id}
+                key={m.userId || m.uid || `member-${index}`}
                 className="relative"
                 style={{ marginLeft: index === 0 ? 0 : "-12px" }} // overlap effect
               >
                 <Avatar className="w-10 h-10 border-2 border-background shadow-sm">
                   <AvatarImage src={m.avatar} alt={m.name} />
                   <AvatarFallback className="bg-primary/10 text-primary">
-                    {(m.displayName || m.name || m.email)?.charAt(0)?.toUpperCase() || "U"}
+                    {(m.name || m.email)?.charAt(0)?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
               </div>

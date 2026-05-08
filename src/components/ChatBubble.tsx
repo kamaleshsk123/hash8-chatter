@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { MessageReadReceipts } from "@/components/MessageReadReceipts";
 import { MessageModerationMenu } from "@/components/moderation/MessageModerationMenu";
-import { Clock, Wifi, WifiOff } from "lucide-react";
+import { Clock, Wifi, WifiOff, Pin, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PollBubble } from "./PollBubble";
 
 interface ChatBubbleProps {
   message: Message;
@@ -15,6 +17,11 @@ interface ChatBubbleProps {
   organizationId?: string;
   groupId?: string;
   onMessageDeleted?: () => void;
+  onTogglePin?: (messageId: string, isPinned: boolean) => void;
+  onEditMessage?: (message: Message) => void;
+  onReply?: (message: Message) => void;
+  isThreadParent?: boolean;
+  onViewVoters?: (message: Message) => void;
 }
 
 export const ChatBubble: React.FC<ChatBubbleProps> = ({
@@ -24,6 +31,11 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   organizationId,
   groupId,
   onMessageDeleted,
+  onTogglePin,
+  onEditMessage,
+  onReply,
+  isThreadParent = false,
+  onViewVoters,
 }) => {
   const { user } = useAuth();
   const isOwnMessage = message.senderId === user?.uid;
@@ -86,7 +98,33 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 This message was deleted by a moderator
               </p>
             ) : (
-              <p className="text-sm leading-relaxed">{message.text}</p>
+              <div className="flex flex-col gap-1">
+                {!isThreadParent && message.isPinned && (
+                  <div className="flex items-center gap-1 text-[10px] opacity-70 mb-1">
+                    <Pin className="w-3 h-3 fill-current" />
+                    <span>Pinned</span>
+                  </div>
+                )}
+                
+                {message.pollData ? (
+                  <PollBubble 
+                    message={message} 
+                    organizationId={organizationId} 
+                    groupId={groupId} 
+                    isOwnMessage={isOwnMessage}
+                    onViewVoters={() => onViewVoters?.(message)}
+                  />
+                ) : (
+                  <p className="text-sm leading-relaxed">
+                    {message.text}
+                    {message.isEdited && (
+                      <span className="text-[10px] opacity-50 ml-1 italic font-normal">
+                        (edited)
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
             )}
 
             <div
@@ -108,11 +146,26 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             </div>
           </div>
 
+          {/* Reply Count Indicator */}
+          {!isThreadParent && !message.deleted && message.replyCount && message.replyCount > 0 ? (
+            <div className={cn("flex mt-1", isOwnMessage ? "justify-end mr-2" : "justify-start ml-2")}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 px-2 text-[10px] text-primary hover:text-primary/80 bg-primary/10 rounded-full"
+                onClick={() => onReply?.(message)}
+              >
+                <MessageSquare className="w-3 h-3 mr-1" />
+                {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
+              </Button>
+            </div>
+          ) : null}
+
           {/* Moderation Menu - only show if not deleted and user has permissions */}
           {!message.deleted && currentUserRole && organizationId && groupId && (
             <div className={cn(
-              "absolute top-2",
-              isOwnMessage ? "left-2" : "right-2"
+              "absolute top-1",
+              isOwnMessage ? "-left-7" : "-right-7"
             )}>
               <MessageModerationMenu
                 message={message}
@@ -122,6 +175,9 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 organizationId={organizationId}
                 groupId={groupId}
                 onMessageDeleted={onMessageDeleted}
+                onTogglePin={onTogglePin}
+                onEditMessage={onEditMessage}
+                onReply={onReply}
               />
             </div>
           )}
