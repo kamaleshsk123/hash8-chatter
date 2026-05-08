@@ -39,8 +39,9 @@
 | **P4** | Message Threads | ✅ **COMPLETE** | UI refinements & logic added |
 | **P5** | Audio/Video Calls (WebRTC) | ⏸️ **PAUSED** | 5‑7 days |
 | **P6** | PWA / Installable App | ⏸️ **PAUSED** | 2‑3 days |
-| **P7** | Polls & Surveys | **NEXT UP** | 2‑3 days |
-| **P8** | Shared Calendar / Events | **PLANNED** | 3‑4 days |
+| **P7** | Polls & Surveys | ✅ **COMPLETE** | Interactive UI + live results |
+| **P8** | Shared Calendar / Events | **NEXT UP** | 3‑4 days |
+| **P9** | Task Management | **PLANNED** | 2-3 days |
 
 ## 4️⃣ Suggested Next Steps
 1. **Sprint 1 – Technical Debt** (✅ **COMPLETED**)
@@ -56,11 +57,12 @@
    - Implement Global Search (✅ **COMPLETED**).
    - Integrate Push Notifications via FCM (✅ **COMPLETED**).
 3. **Sprint 3 – Advanced Features** (🚀 **CURRENT**)
-   - Implement Polls & Surveys for team collaboration (NEXT UP).
-   - Begin Shared Calendar / Events.
+   - Implement Polls & Surveys (✅ **COMPLETED**).
+   - Implement Shared Calendar / Events (NEXT UP).
+   - Implement Task Management (PLANNED).
    - *Note: Audio/Video Call integration (WebRTC) and PWA support are currently paused.*
 
-> **Bottom line:** With Global Search and Notifications successfully integrated, the application provides a highly polished core chat experience. The focus now shifts toward team productivity features, starting with interactive Polls.
+> **Bottom line:** With Polls and Surveys successfully integrated with a premium UI and live results, the application provides a highly polished core chat experience. The focus now shifts toward planning and coordination features, starting with the Shared Calendar.
 
 ---
-*Generated on 2026‑05‑07*
+*Generated on 2026‑05‑08*
