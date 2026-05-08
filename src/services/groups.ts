@@ -542,3 +542,26 @@ export const editGroupMessage = async (
     throw error;
   }
 };
+// Search for groups within an organization by name prefix
+export const searchGroups = async (orgId: string, searchTerm: string, limitCount = 5) => {
+  if (!orgId || !searchTerm || searchTerm.length < 2) return [];
+
+  try {
+    const groupsQuery = query(
+      collection(db, `organizations/${orgId}/groups`),
+      where('name', '>=', searchTerm),
+      where('name', '<=', searchTerm + '\uf8ff'),
+      orderBy('name'),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(groupsQuery);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error("Group search failed:", error);
+    return [];
+  }
+};

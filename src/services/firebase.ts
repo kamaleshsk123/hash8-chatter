@@ -73,7 +73,8 @@ export {
   markMessageAsRead, 
   markMultipleMessagesAsRead,
   togglePinGroupMessage,
-  deleteGroupMessage 
+  deleteGroupMessage,
+  searchGroups
 } from './groups';
 
 // === Direct Messages ===

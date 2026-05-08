@@ -25,7 +25,6 @@ export const searchGlobalMessages = async (searchTerm: string, limitCount = 5): 
       where('text', '>=', searchTerm),
       where('text', '<=', searchTerm + '\uf8ff'),
       orderBy('text'),
-      orderBy('timestamp', 'desc'),
       limit(limitCount)
     );
 
@@ -52,7 +51,6 @@ export const searchOrgPosts = async (orgId: string, searchTerm: string, limitCou
       where('content', '>=', searchTerm),
       where('content', '<=', searchTerm + '\uf8ff'),
       orderBy('content'),
-      orderBy('createdAt', 'desc'),
       limit(limitCount)
     );
 

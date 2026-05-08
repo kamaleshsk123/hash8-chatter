@@ -264,18 +264,33 @@ const Chat = () => {
 
   const handleSearchResult = (type: 'chat' | 'feed' | 'direct_message' | 'your-feed', id: string, extra?: any) => {
     setView(type as any);
-    if (type === 'direct_message' && extra) {
+    if (type === 'chat') {
+      // Group chat selected from search
       setSelectedGroup({
         id: id,
+        name: extra?.name || 'Group Chat',
+        type: 'group',
+        members: extra?.members || [],
+        avatar: extra?.avatar || '',
+      });
+      if (extra?.orgId) {
+        setSelectedOrg({ id: extra.orgId });
+      }
+      updateURL('chat', extra?.orgId || selectedOrg?.id, id);
+    } else if (type === 'direct_message' && extra) {
+      if (!user) return;
+      const conversationId = [user.uid, id].sort().join('_');
+      setSelectedGroup({
+        id: conversationId,
         name: extra.name,
         type: 'direct_message',
         otherUser: {
-          userId: extra.userId,
+          userId: extra.userId || id,
           name: extra.name,
           avatar: extra.avatar
         }
       });
-      updateURL('direct_message', undefined, id);
+      updateURL('direct_message', undefined, conversationId);
     } else if (type === 'feed') {
       const org = { id: id };
       setSelectedOrg(org);
@@ -287,6 +302,7 @@ const Chat = () => {
     
     if (isMobile) setSidebarOpen(false);
   };
+
 
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isLeaveGroupDialogOpen, setIsLeaveGroupDialogOpen] = useState(false);

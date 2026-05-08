@@ -76,13 +76,40 @@ export const subscribeToUserStatus = (userIds: string[], callback: (statuses: an
 export const searchUsers = async (searchTerm: string) => {
   if (!searchTerm || searchTerm.length < 2) return [];
   
-  const q = query(
-    collection(db, "users"),
-    where("name", ">=", searchTerm),
-    where("name", "<=", searchTerm + '\uf8ff'),
-    limit(10)
-  );
+  // Make search more robust by searching for both exact input and Capitalized input
+  const capitalizedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1).toLowerCase();
   
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ userId: doc.id, ...doc.data() }));
+  // Avoid duplicate queries if the term is already capitalized
+  const termsToSearch = searchTerm === capitalizedTerm 
+    ? [searchTerm] 
+    : [searchTerm, capitalizedTerm];
+  
+  const queries: any[] = [];
+  
+  termsToSearch.forEach(term => {
+    queries.push(query(collection(db, "users"), where("name", ">=", term), where("name", "<=", term + '\uf8ff'), limit(10)));
+    queries.push(query(collection(db, "users"), where("displayName", ">=", term), where("displayName", "<=", term + '\uf8ff'), limit(10)));
+  });
+  
+  const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+  
+  const resultsMap = new Map();
+  snapshots.forEach(snapshot => {
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const name = data.name || data.displayName || 'Unknown User';
+      
+      // Deduplicate by name to prevent showing multiple test accounts with the exact same name
+      // If we already have this name, skip adding it again
+      if (!resultsMap.has(name)) {
+        resultsMap.set(name, { 
+          userId: doc.id, 
+          ...data,
+          name: name
+        });
+      }
+    });
+  });
+  
+  return Array.from(resultsMap.values());
 };
