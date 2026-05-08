@@ -227,6 +227,8 @@ export const subscribeToDirectMessages = (
         isPinned: data.isPinned || false,
         pinnedBy: data.pinnedBy,
         pinnedAt: data.pinnedAt?.toDate(),
+        deleted: data.deleted || false,
+        originalText: data.originalText,
         hasPendingWrites: doc.metadata.hasPendingWrites, // Added for offline support
         ...(data.type === 'poll' && data.pollData ? { pollData: data.pollData } : {})
       };

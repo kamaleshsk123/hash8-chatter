@@ -21,6 +21,7 @@ import { ReplyToMessage } from "@/components/ReplyToMessage";
 import { EmojiPickerComponent } from "@/components/EmojiPicker";
 import { formatChatDate, isSameDay } from "@/utils/dateUtils";
 import { PollBubble } from "@/components/PollBubble";
+import { cn } from "@/lib/utils";
 
 interface Message {
   id: string;
@@ -210,7 +211,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             </div>
                           )}
                           
-                          {(message.type === 'poll' && message.pollData) ? (
+                          {(!message.deleted && message.type === 'poll' && message.pollData) ? (
                             <PollBubble 
                               message={message as any} 
                               groupId={conversationId}
@@ -220,7 +221,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                           ) : (message.text || (!message.fileUrl && !message.text)) && (
                             <p className="text-sm whitespace-pre-wrap break-words">
                               {message.deleted ? (
-                                <span className="text-muted-foreground italic">This message has been deleted</span>
+                                <span className={cn(
+                                  "italic",
+                                  isOwnMessage ? "text-white/70" : "text-muted-foreground/80"
+                                )}>
+                                  This message has been deleted
+                                </span>
                               ) : (
                                 <>
                                   {message.text || "Document"}
