@@ -76,13 +76,13 @@ export const subscribeToUserStatus = (userIds: string[], callback: (statuses: an
 export const searchUsers = async (searchTerm: string) => {
   if (!searchTerm || searchTerm.length < 2) return [];
   
-  // Make search more robust by searching for both exact input and Capitalized input
-  const capitalizedTerm = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1).toLowerCase();
+  const exact = searchTerm;
+  const lower = searchTerm.toLowerCase();
+  const upper = searchTerm.toUpperCase();
+  const capitalized = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1).toLowerCase();
   
-  // Avoid duplicate queries if the term is already capitalized
-  const termsToSearch = searchTerm === capitalizedTerm 
-    ? [searchTerm] 
-    : [searchTerm, capitalizedTerm];
+  // Use a Set to avoid duplicate queries for identical variations
+  const termsToSearch = Array.from(new Set([exact, lower, upper, capitalized]));
   
   const queries: any[] = [];
   
