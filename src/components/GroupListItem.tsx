@@ -102,26 +102,6 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({
         group={group}
         userId={userId}
       />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground truncate">
-            {group.lastMessage 
-              ? `${group.lastMessage.senderName}: ${group.lastMessage.text}`
-              : 'No messages yet'
-            }
-          </p>
-          
-          {group.unreadCount && group.unreadCount > 0 && (
-            <Badge 
-              variant="default" 
-              className="ml-2 bg-primary text-primary-foreground text-xs h-5 min-w-5 px-1.5"
-            >
-              {group.unreadCount > 99 ? '99+' : group.unreadCount}
-            </Badge>
-          )}
-        </div>
-      </div>
     </motion.div>
   );
 };

@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         let role: User['role'] = 'member'; // Default role
         
         // Get all profile data from Firestore
-        let phone, jobTitle, department, bio, location, createdAt, updatedAt;
+        let phone, jobTitle, department, bio, location, createdAt, updatedAt, notifications;
         
         if (userDoc.exists()) {
           const data = userDoc.data();
@@ -71,6 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           location = data.location;
           createdAt = data.createdAt?.toDate();
           updatedAt = data.updatedAt?.toDate();
+          notifications = data.notifications;
         }
         
         // If avatar is missing, use first letter of name
@@ -92,6 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         location,
         createdAt,
         updatedAt,
+        notifications,
       };
       setUser(userData);
       updateUserStatus(firebaseUser.uid, true);
@@ -106,6 +108,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     fetchAndSetUser();
   }, [firebaseUser]);
+
+  useEffect(() => {
+    if (user?.uid && user?.notifications?.pushEnabled) {
+      import("@/services/notifications").then(({ requestNotificationPermission }) => {
+        requestNotificationPermission(user.uid);
+      });
+    }
+  }, [user?.uid, user?.notifications?.pushEnabled]);
 
   const refreshUser = async () => {
     await fetchAndSetUser();

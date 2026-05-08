@@ -13,6 +13,13 @@ export interface User {
   location?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  notifications?: {
+    desktop?: boolean;
+    sound?: boolean;
+    email?: boolean;
+    pushEnabled?: boolean;
+  };
+  fcmTokens?: string[];
 }
 
 export type UserRole = 'admin' | 'moderator' | 'member';
@@ -66,7 +73,12 @@ export interface Message {
   deletedAt?: Date;
   deletionReason?: string;
   originalText?: string;
+  isPinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: Date;
   hasPendingWrites?: boolean; // Added for offline support
+  parentMessageId?: string; // For threads
+  replyCount?: number;      // Number of replies in the thread
 }
 
 export interface ReadReceipt {

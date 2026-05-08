@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Paperclip, Send, X } from "lucide-react";
+import { Paperclip, Send, X, Edit2 } from "lucide-react";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { EmojiPickerComponent } from "@/components/EmojiPicker";
 
@@ -9,6 +9,7 @@ interface MessageInputProps {
   newMessage: string;
   isSending: boolean;
   editingMessageId: string | null;
+  editingText?: string;
   otherUser: any;
   replyToMessage: any;
   fileInputRef: React.RefObject<HTMLInputElement>;
@@ -27,6 +28,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   newMessage,
   isSending,
   editingMessageId,
+  editingText,
   otherUser,
   replyToMessage,
   fileInputRef,
@@ -64,15 +66,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       )}
       
       {editingMessageId && (
-        <div className="mb-3 p-2 bg-muted rounded-md border-l-2 border-orange-500">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-orange-600 dark:text-orange-400">
-              Editing message
-            </div>
-            <Button variant="ghost" size="sm" onClick={cancelEditing} className="h-6 w-6 p-0">
-              <X className="h-4 w-4" />
-            </Button>
+        <div className="mb-2 px-3 py-1.5 bg-primary/5 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Edit2 className="w-3 h-3 text-primary shrink-0" />
+            <span className="text-[11px] text-muted-foreground truncate">
+              Editing: {editingText || 'message'}
+            </span>
           </div>
+          <Button variant="ghost" size="icon" onClick={cancelEditing} className="h-5 w-5 rounded-full">
+            <X className="w-3 h-3" />
+          </Button>
         </div>
       )}
       

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Bluetooth, Loader2 } from "lucide-react";
 import imageCompression from 'browser-image-compression';
 import { uploadDocumentToCloudinary, uploadImageToCloudinary } from '@/services/cloudinary';
-import { 
+import {
   subscribeToDirectMessages,
   markDirectMessageAsRead,
   sendDirectMessageWithFile,
@@ -17,6 +17,7 @@ import {
   setTypingIndicator,
   resetUnreadCount,
   subscribeToTypingIndicators,
+  togglePinDirectMessage,
   db
 } from "@/services/firebase";
 import { offlineCache } from "@/services/offlineCache";
@@ -27,6 +28,8 @@ import { doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { DirectMessageHeader } from '@/components/direct-message/DirectMessageHeader';
 import { MessageList } from '@/components/direct-message/MessageList';
 import { MessageInput } from '@/components/direct-message/MessageInput';
+import { ThreadView } from '@/components/ThreadView';
+import { PinnedMessagesSidebar } from '@/components/PinnedMessagesSidebar';
 
 interface DirectMessageProps {
   conversationId: string;
@@ -72,6 +75,11 @@ interface Message {
   };
   deleted?: boolean;
   hasPendingWrites?: boolean; // Added for offline support
+  isPinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: Date;
+  parentMessageId?: string;
+  replyCount?: number;
 }
 
 export const DirectMessage: React.FC<DirectMessageProps> = ({
@@ -86,10 +94,12 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<Array<{userId: string, userName: string}>>([]);
+  const [typingUsers, setTypingUsers] = useState<Array<{ userId: string, userName: string }>>([]);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+  const [selectedThreadMessage, setSelectedThreadMessage] = useState<Message | null>(null);
+  const [showPinnedSidebar, setShowPinnedSidebar] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [bluetoothStatus, setBluetoothStatus] = useState<{
     enabled: boolean;
@@ -104,7 +114,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   const clearChat = async () => {
     // Soft delete all messages in this conversation
     if (!user) return;
-    
+
     // Only proceed if there are messages to delete
     const activeMessages = messages.filter((msg) => !msg.deleted);
     if (activeMessages.length === 0) {
@@ -125,16 +135,16 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         });
       }
 
-      const deletePromises = activeMessages.map((msg) => 
+      const deletePromises = activeMessages.map((msg) =>
         deleteDirectMessage(conversationId, msg.id, user.uid, true)
       );
-      
+
       await Promise.all(deletePromises);
-      
+
       setMessages([]);
       // Remove cached messages for this conversation
       offlineCache.removeCachedConversation(conversationId);
-      
+
       toast({
         title: 'Chat cleared',
         description: 'All messages have been removed. They can be recovered within 6 months.',
@@ -153,6 +163,17 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const scrollToMessage = (messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('bg-primary/20', 'transition-colors', 'duration-500');
+      setTimeout(() => {
+        el.classList.remove('bg-primary/20');
+      }, 2000);
+    }
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -160,7 +181,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   // Load messages with offline support
   useEffect(() => {
     if (!conversationId) return;
-    
+
     setIsLoading(true);
     let unsubscribe: (() => void) | null = null;
 
@@ -176,16 +197,16 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           };
         }
       }
-      
+
       // Try to get cached messages first (especially important when offline)
       const cachedData = offlineCache.getCachedMessages(conversationId);
-      
+
       if (cachedData && cachedData.messages.length > 0) {
         console.log('Loading cached messages for conversation:', conversationId);
         setMessages(cachedData.messages);
         setIsLoading(false);
         setIsOfflineMode(!isOnline);
-        
+
         // Show offline indicator
         if (!isOnline) {
           toast({
@@ -211,16 +232,16 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
               setMessages(newMessages);
               setIsLoading(false);
               setIsOfflineMode(false);
-              
+
               // Cache the messages for offline use
               offlineCache.cacheMessages(conversationId, newMessages, effectiveOtherUser);
-              
+
               if (user) {
-                const unreadMessages = newMessages.filter(msg => 
-                  msg.senderId !== user.uid && 
+                const unreadMessages = newMessages.filter(msg =>
+                  msg.senderId !== user.uid &&
                   !msg.readBy.some(receipt => receipt.userId === user.uid)
                 );
-                
+
                 if (unreadMessages.length > 0) {
                   // Reset conversation unread count
                   resetUnreadCount(conversationId, user.uid);
@@ -240,7 +261,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
             (error) => {
               console.error('Error subscribing to messages:', error);
               setIsLoading(false);
-              
+
               // If subscription fails and we don't have cached data, show error
               if (!cachedData) {
                 toast({
@@ -270,7 +291,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           setIsLoading(false);
           setIsOfflineMode(true);
           console.log('Starting fresh offline conversation:', conversationId);
-          
+
           // Don't show an error toast for new conversations - this is normal
           // The user can still compose messages that will be queued
         }
@@ -308,7 +329,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
         // Add transport indicator for UI
         (message as any).transport = hybridMessage.transport;
-        
+
         setMessages(prev => {
           // Avoid duplicates
           const exists = prev.some(msg => msg.id === message.id);
@@ -365,76 +386,82 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
     if (!newMessage.trim() || !user || isSending) return;
 
     setIsSending(true);
-    
-    const messageData = {
-      text: newMessage.trim(),
-      senderId: user.uid,
-      senderName: user.name || 'Unknown User',
-      senderAvatar: user.avatar || '',
-      type: 'text' as const,
-      replyTo: replyToMessage ? {
-        messageId: replyToMessage.id,
-        text: replyToMessage.text,
-        senderName: replyToMessage.senderName
-      } : undefined
-    };
-    
-    try {
-      // Clear input immediately for better UX
-      setNewMessage('');
-      setReplyToMessage(null);
-      
-      // Use hybrid messaging system
-      const result = await hybridMessaging.sendMessage(
-        conversationId,
-        messageData,
-        isOnline
-      );
 
-      // Show appropriate feedback based on transport used
-      if (result.transport === 'bluetooth') {
+    try {
+      if (editingMessageId) {
+        // Handle edit mode
+        await editDirectMessage(conversationId, editingMessageId, newMessage.trim(), user.uid);
+        setEditingMessageId(null);
+        setEditingText('');
+        setNewMessage('');
         toast({
-          title: "Sent via Bluetooth",
-          description: `Message sent to ${bluetoothStatus.deviceCount} nearby device(s). Will sync when online.`,
-          duration: 4000,
+          title: "Message updated",
+          description: "Your message has been edited successfully."
         });
-      } else if (result.transport === 'cache') {
-        toast({
-          title: "Message Queued",
-          description: isOnline 
-            ? "Message cached due to connection issues."
-            : "Message will be sent when you're back online.",
-          duration: 3000,
-        });
-      }
-      // Firebase messages don't need toast (normal behavior)
-      
-      // Clear typing indicator if online
-      if (isOnline && typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-        try {
-          await setTypingIndicator(conversationId, user.uid, user.name || 'Unknown User', false);
-        } catch (error) {
-          console.log('Typing indicator error:', error);
+      } else {
+        // Handle new message mode
+        const messageData = {
+          text: newMessage.trim(),
+          senderId: user.uid,
+          senderName: user.name || 'Unknown User',
+          senderAvatar: user.avatar || '',
+          type: 'text' as const,
+          replyTo: replyToMessage ? {
+            messageId: replyToMessage.id,
+            text: replyToMessage.text,
+            senderName: replyToMessage.senderName
+          } : undefined
+        };
+
+        // Clear input immediately for better UX
+        setNewMessage('');
+        setReplyToMessage(null);
+
+        // Use hybrid messaging system
+        const result = await hybridMessaging.sendMessage(
+          conversationId,
+          messageData,
+          isOnline
+        );
+
+        // Show appropriate feedback based on transport used
+        if (result.transport === 'bluetooth') {
+          toast({
+            title: "Sent via Bluetooth",
+            description: `Message sent to ${bluetoothStatus.deviceCount} nearby device(s). Will sync when online.`,
+            duration: 4000,
+          });
+        } else if (result.transport === 'cache') {
+          toast({
+            title: "Message Queued",
+            description: isOnline
+              ? "Message cached due to connection issues."
+              : "Message will be sent when you're back online.",
+            duration: 3000,
+          });
+        }
+
+        // Clear typing indicator if online
+        if (isOnline && typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          try {
+            await setTypingIndicator(conversationId, user.uid, user.name || 'Unknown User', false);
+          } catch (error) {
+            console.log('Typing indicator error:', error);
+          }
         }
       }
-      
     } catch (error) {
-      console.error('Error sending message:', error);
-      
+      console.error('Error in message action:', error);
+
       // Restore message on error
-      setNewMessage(messageData.text);
-      if (messageData.replyTo) {
-        setReplyToMessage({
-          id: messageData.replyTo.messageId,
-          text: messageData.replyTo.text,
-          senderName: messageData.replyTo.senderName
-        } as Message);
+      if (!editingMessageId) {
+        setNewMessage(newMessage.trim());
       }
-      
+
       toast({
-        title: "Send Failed",
-        description: "Failed to send message. Please try again.",
+        title: "Action Failed",
+        description: editingMessageId ? "Failed to update message." : "Failed to send message.",
         variant: "destructive"
       });
     } finally {
@@ -442,12 +469,41 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
     }
   };
 
+  const handleTogglePin = async (messageId: string, isPinned: boolean) => {
+    if (!user) return;
+
+    // Skip pinning when offline
+    if (!isOnline) {
+      toast({
+        title: "Pin Unavailable",
+        description: "Message pinning requires an internet connection.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      await togglePinDirectMessage(conversationId, messageId, user.uid, isPinned);
+      toast({
+        title: isPinned ? "Message Pinned" : "Message Unpinned",
+        description: isPinned ? "The message has been pinned." : "The message has been unpinned."
+      });
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update pinned status",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleManualBluetoothScan = async () => {
     setBluetoothStatus(prev => ({ ...prev, scanning: true }));
-    
+
     try {
       const success = await hybridMessaging.enableBluetoothMode();
-      
+
       if (success) {
         const deviceCount = bluetoothMessaging.getConnectedDevices().length;
         setBluetoothStatus({
@@ -455,7 +511,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           deviceCount,
           scanning: false
         });
-        
+
         toast({
           title: "Bluetooth Connected",
           description: `Successfully connected to ${deviceCount} device${deviceCount !== 1 ? 's' : ''}. You can now send messages via Bluetooth.`,
@@ -463,7 +519,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         });
       } else {
         setBluetoothStatus({ enabled: false, deviceCount: 0, scanning: false });
-        
+
         toast({
           title: "No Devices Found",
           description: "No compatible Hash8 Chatter devices found nearby. Make sure Bluetooth is enabled and devices are close by.",
@@ -474,7 +530,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
     } catch (error: any) {
       console.error('Manual Bluetooth scan failed:', error);
       setBluetoothStatus({ enabled: false, deviceCount: 0, scanning: false });
-      
+
       // Handle user cancellation gracefully
       if (error?.message?.includes('User cancelled') || error?.name === 'NotFoundError') {
         toast({
@@ -573,7 +629,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
       const messageId = generateUUID();
       const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
-      
+
       const messageDoc = {
         id: messageId,
         conversationId: conversationId,
@@ -590,9 +646,9 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         fileSize: file.size,
         reactions: {}
       };
-      
+
       await setDoc(messageRef, messageDoc);
-      
+
       const conversationRef = doc(db, 'direct_messages', conversationId);
       await updateDoc(conversationRef, {
         lastActivity: serverTimestamp(),
@@ -640,7 +696,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
       const messageId = generateUUID();
       const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
-      
+
       const messageDoc = {
         id: messageId,
         conversationId: conversationId,
@@ -657,9 +713,9 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         fileSize: audioFile.size,
         reactions: {}
       };
-      
+
       await setDoc(messageRef, messageDoc);
-      
+
       const conversationRef = doc(db, 'direct_messages', conversationId);
       await updateDoc(conversationRef, {
         lastActivity: serverTimestamp(),
@@ -721,7 +777,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
       });
       return;
     }
-    
+
     setEditingMessageId(message.id);
     setEditingText(message.text);
     setNewMessage(message.text);
@@ -764,7 +820,6 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   const cancelReply = () => {
     setReplyToMessage(null);
   };
-
   const handleReplyClick = (messageId: string) => {
     const messageElement = messageRefs.current[messageId];
     if (messageElement) {
@@ -773,104 +828,118 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-background">
-      <DirectMessageHeader otherUser={otherUser} onClearChat={clearChat} />
-      
-      {/* Offline/Bluetooth Mode Indicator */}
-      {(isOfflineMode || bluetoothStatus.enabled) && (
-        <div className={`border-b px-4 py-2 ${
-          bluetoothStatus.enabled 
-            ? 'bg-blue-100 dark:bg-blue-900' 
+    <div className="flex-1 flex overflow-hidden h-full">
+      <div className="flex-1 flex flex-col min-w-0 bg-background relative">
+        <DirectMessageHeader 
+          otherUser={otherUser}
+          onClearChat={clearChat}
+          messages={messages}
+          onTogglePinnedSidebar={() => setShowPinnedSidebar(!showPinnedSidebar)}
+        />
+
+        {/* Offline/Bluetooth Mode Indicator */}
+        {(isOfflineMode || bluetoothStatus.enabled) && (
+          <div className={`border-b px-4 py-2 ${bluetoothStatus.enabled
+            ? 'bg-blue-100 dark:bg-blue-900'
             : 'bg-yellow-100 dark:bg-yellow-900'
-        }`}>
-          <div className={`flex items-center justify-between ${
-            bluetoothStatus.enabled 
-              ? 'text-blue-800 dark:text-blue-200' 
+            }`}>
+            <div className={`flex items-center justify-between ${bluetoothStatus.enabled
+              ? 'text-blue-800 dark:text-blue-200'
               : 'text-yellow-800 dark:text-yellow-200'
-          }`}>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                bluetoothStatus.enabled ? 'bg-blue-500' : 'bg-yellow-500'
-              }`}></div>
-              <span className="text-sm font-medium">
-                {bluetoothStatus.enabled 
-                  ? `Bluetooth Mode (${bluetoothStatus.deviceCount} device${bluetoothStatus.deviceCount !== 1 ? 's' : ''})` 
-                  : 'Offline Mode'
-                }
-              </span>
-              <span className="text-xs opacity-75">
-                {bluetoothStatus.enabled 
-                  ? '- P2P messaging active'
-                  : bluetoothStatus.scanning 
-                    ? '- Scanning for devices...'
-                    : '- Showing cached messages'
-                }
-              </span>
+              }`}>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${bluetoothStatus.enabled ? 'bg-blue-500' : 'bg-yellow-500'
+                  } animate-pulse`} />
+                <span className="text-xs font-medium">
+                  {bluetoothStatus.enabled
+                    ? `Bluetooth Active: ${bluetoothStatus.deviceCount} device(s) connected`
+                    : 'Offline Mode: Messages will sync when online'
+                  }
+                </span>
+              </div>
+              {!isOnline && !bluetoothStatus.enabled && (
+                <Button
+                  onClick={handleManualBluetoothScan}
+                  disabled={bluetoothStatus.scanning}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 border-current"
+                >
+                  {bluetoothStatus.scanning ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Scanning
+                    </>
+                  ) : (
+                    <>
+                      <Bluetooth className="h-3 w-3 mr-1" />
+                      Find Devices
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-            
-            {/* Manual Bluetooth Scan Button - only show when offline and not already connected */}
-            {!isOnline && !bluetoothStatus.enabled && (
-              <Button
-                onClick={handleManualBluetoothScan}
-                disabled={bluetoothStatus.scanning}
-                size="sm"
-                variant="outline"
-                className="text-xs h-7 border-current"
-              >
-                {bluetoothStatus.scanning ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    Scanning
-                  </>
-                ) : (
-                  <>
-                    <Bluetooth className="h-3 w-3 mr-1" />
-                    Find Devices
-                  </>
-                )}
-              </Button>
-            )}
           </div>
-        </div>
-      )}
-      
-      <MessageList
-        messages={messages}
-        user={user}
-        otherUser={otherUser}
-        isLoading={isLoading}
-        messagesEndRef={messagesEndRef}
-        messageRefs={messageRefs}
-        handleEditMessage={handleEditMessage}
-        handleDeleteMessage={handleDeleteMessage}
-        handleReplyToMessage={handleReplyToMessage}
-        handleReaction={handleReaction}
-        handleReplyClick={handleReplyClick}
-      />
-      {typingUsers.length > 0 && (
-        <div className="px-4 py-2">
-          <div className="text-xs text-muted-foreground">
-            {typingUsers.map(u => u.userName).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+        )}
+
+        <MessageList
+          messages={messages.filter(m => !m.parentMessageId)}
+          user={user}
+          otherUser={otherUser}
+          isLoading={isLoading}
+          messagesEndRef={messagesEndRef}
+          messageRefs={messageRefs}
+          handleEditMessage={handleEditMessage}
+          handleDeleteMessage={handleDeleteMessage}
+          handleReplyToMessage={handleReplyToMessage}
+          handleReaction={handleReaction}
+          handleReplyClick={handleReplyClick}
+          handleTogglePin={handleTogglePin}
+          onOpenThread={(msg) => setSelectedThreadMessage(msg as any)}
+        />
+        {typingUsers.length > 0 && (
+          <div className="px-4 py-2">
+            <div className="text-xs text-muted-foreground">
+              {typingUsers.map(u => u.userName).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+            </div>
           </div>
-        </div>
+        )}
+        <MessageInput
+          newMessage={newMessage}
+          isSending={isSending}
+          editingMessageId={editingMessageId}
+          editingText={editingText}
+          otherUser={otherUser}
+          replyToMessage={replyToMessage}
+          fileInputRef={fileInputRef}
+          handleInputChange={handleInputChange}
+          handleKeyPress={handleKeyPress}
+          handleSendMessage={handleSendMessage}
+          handleFileUpload={handleFileUpload}
+          handleVoiceMessage={handleVoiceMessage}
+          handleEmojiSelect={handleEmojiSelect}
+          cancelReply={cancelReply}
+          cancelEditing={cancelEditing}
+          isOfflineMode={isOfflineMode}
+        />
+      </div>
+
+      {selectedThreadMessage && (
+        <ThreadView
+          parentMessage={selectedThreadMessage as any}
+          groupId={conversationId}
+          isDM={true}
+          onClose={() => setSelectedThreadMessage(null)}
+        />
       )}
-      <MessageInput
-        newMessage={newMessage}
-        isSending={isSending}
-        editingMessageId={editingMessageId}
-        otherUser={otherUser}
-        replyToMessage={replyToMessage}
-        fileInputRef={fileInputRef}
-        handleInputChange={handleInputChange}
-        handleKeyPress={handleKeyPress}
-        handleSendMessage={handleSendMessage}
-        handleFileUpload={handleFileUpload}
-        handleVoiceMessage={handleVoiceMessage}
-        handleEmojiSelect={handleEmojiSelect}
-        cancelReply={cancelReply}
-        cancelEditing={cancelEditing}
-        isOfflineMode={isOfflineMode}
-      />
+      {showPinnedSidebar && (
+        <PinnedMessagesSidebar
+          messages={messages}
+          onClose={() => setShowPinnedSidebar(false)}
+          onTogglePin={handleTogglePin}
+          onMessageClick={scrollToMessage}
+        />
+      )}
     </div>
   );
 };

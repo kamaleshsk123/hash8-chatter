@@ -27,7 +27,8 @@ export {
   signInWithEmail, 
   registerWithEmail, 
   signOutUser, 
-  upsertUserProfile 
+  upsertUserProfile,
+  resetPassword 
 } from './auth';
 
 // === Organizations ===
@@ -49,7 +50,8 @@ export {
   getUsersByIds, 
   updateUserProfile, 
   updateUserStatus, 
-  subscribeToUserStatus 
+  subscribeToUserStatus,
+  searchUsers 
 } from './users';
 
 // === Groups ===
@@ -69,7 +71,10 @@ export {
   markGroupMessagesAsRead, 
   getUnreadMessageCount, 
   markMessageAsRead, 
-  markMultipleMessagesAsRead 
+  markMultipleMessagesAsRead,
+  togglePinGroupMessage,
+  deleteGroupMessage,
+  searchGroups
 } from './groups';
 
 // === Direct Messages ===
@@ -91,7 +96,8 @@ export {
   setTypingIndicator, 
   subscribeToTypingIndicators,
   subscribeToConversations,
-  resetUnreadCount
+  resetUnreadCount,
+  togglePinDirectMessage
 } from './directMessages';
 
 // === File Storage ===

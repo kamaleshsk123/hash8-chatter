@@ -3,7 +3,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   signOut as firebaseSignOut,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebaseConfig';
@@ -62,6 +63,15 @@ export const signOutUser = async () => {
   }
 };
 
+export const resetPassword = async (email: string) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    throw error;
+  }
+};
+
 // Upsert user profile in /users/{userId}
 export const upsertUserProfile = async (user: {
   uid: string;
@@ -69,12 +79,17 @@ export const upsertUserProfile = async (user: {
   photoURL?: string;
 }) => {
   if (!user.uid) return;
-  await setDoc(
-    doc(db, "users", user.uid),
-    {
-      displayName: user.displayName || "",
-      avatar: user.photoURL || "",
-    },
-    { merge: true }
-  );
+
+  const updates: any = {};
+  if (user.displayName) updates.displayName = user.displayName;
+  if (user.photoURL) updates.avatar = user.photoURL;
+
+  // Only update if there are actual values to sync
+  if (Object.keys(updates).length > 0) {
+    await setDoc(
+      doc(db, "users", user.uid),
+      updates,
+      { merge: true }
+    );
+  }
 };

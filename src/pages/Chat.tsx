@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ChatBubble } from "@/components/ChatBubble";
+import { formatChatDate, isSameDay } from "@/utils/dateUtils";
+import { formatDistanceToNow } from "date-fns";
 import { GroupListItem } from "@/components/GroupListItem";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { useAuth } from "@/context/AuthContext";
@@ -20,7 +22,15 @@ import {
   getUsersByIds,
   subscribeToUserStatus,
   leaveGroup,
+  getUserRoleInOrganization,
+  getOrganizationByUID,
+  getGroupDetails,
 } from "@/services/firebase";
+import {
+  togglePinGroupMessage,
+  deleteGroupMessage,
+  editGroupMessage,
+} from "@/services/groups";
 import {
   Send,
   Menu,
@@ -32,6 +42,11 @@ import {
   LogOut,
   Moon,
   Sun,
+  Pin,
+  PinOff,
+  X,
+  Edit2,
+  MessageSquare,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -66,6 +81,9 @@ import { DirectMessage } from "./DirectMessage";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InviteToGroupDialog } from "./InviteToGroupDialog";
 import { GroupInfoSheet } from "./GroupInfoSheet";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { ThreadView } from "@/components/ThreadView";
+import { PinnedMessagesSidebar } from "@/components/PinnedMessagesSidebar";
 
 // Mock data for development
 const mockGroups: Group[] = [
@@ -208,6 +226,8 @@ const Chat = () => {
   // Loading states
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   // UI state
   const isMobile = useIsMobile();
@@ -225,6 +245,8 @@ const Chat = () => {
     useState(false);
   const [selectedOrgForSettings, setSelectedOrgForSettings] =
     useState<any>(null);
+  const [selectedThreadMessage, setSelectedThreadMessage] = useState<Message | null>(null);
+  const [showPinnedSidebar, setShowPinnedSidebar] = useState(false);
   const refreshOrganizationsRef = useRef<() => void>(() => {});
 
   // Function to update URL with current state
@@ -239,6 +261,48 @@ const Chat = () => {
     }
     setSearchParams(params);
   };
+
+  const handleSearchResult = (type: 'chat' | 'feed' | 'direct_message' | 'your-feed', id: string, extra?: any) => {
+    setView(type as any);
+    if (type === 'chat') {
+      // Group chat selected from search
+      setSelectedGroup({
+        id: id,
+        name: extra?.name || 'Group Chat',
+        type: 'group',
+        members: extra?.members || [],
+        avatar: extra?.avatar || '',
+      });
+      if (extra?.orgId) {
+        setSelectedOrg({ id: extra.orgId });
+      }
+      updateURL('chat', extra?.orgId || selectedOrg?.id, id);
+    } else if (type === 'direct_message' && extra) {
+      if (!user) return;
+      const conversationId = [user.uid, id].sort().join('_');
+      setSelectedGroup({
+        id: conversationId,
+        name: extra.name,
+        type: 'direct_message',
+        otherUser: {
+          userId: extra.userId || id,
+          name: extra.name,
+          avatar: extra.avatar
+        }
+      });
+      updateURL('direct_message', undefined, conversationId);
+    } else if (type === 'feed') {
+      const org = { id: id };
+      setSelectedOrg(org);
+      updateURL('feed', id);
+    } else if (type === 'your-feed') {
+      setView('your-feed');
+      updateURL('your-feed');
+    }
+    
+    if (isMobile) setSidebarOpen(false);
+  };
+
 
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isLeaveGroupDialogOpen, setIsLeaveGroupDialogOpen] = useState(false);
@@ -261,6 +325,17 @@ const Chat = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollToMessage = (messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('bg-primary/20', 'transition-colors', 'duration-500');
+      setTimeout(() => {
+        el.classList.remove('bg-primary/20');
+      }, 2000);
+    }
   };
 
   useEffect(() => {
@@ -299,12 +374,40 @@ const Chat = () => {
                 setView("direct_message");
               }
             }
+          } else if (selectedOrg?.id) {
+            // Hydrate regular group details
+            const groupDetails = await getGroupDetails(selectedOrg.id, selectedGroup.id);
+            if (groupDetails) {
+              setSelectedGroup(groupDetails);
+            }
           }
         } catch (err) {
           console.error("Error hydrating group details:", err);
         }
       };
       fetchDetails();
+    }
+
+    // Hydrate organization details if missing
+    if (selectedOrg && !selectedOrg.name && user?.uid) {
+      const fetchOrgDetails = async () => {
+        try {
+          const [role, orgData] = await Promise.all([
+            getUserRoleInOrganization(user.uid, selectedOrg.id),
+            getOrganizationByUID(selectedOrg.id)
+          ]);
+          
+          if (orgData) {
+            setSelectedOrg({
+              ...orgData,
+              userRole: role
+            });
+          }
+        } catch (err) {
+          console.error("Error hydrating organization details:", err);
+        }
+      };
+      fetchOrgDetails();
     }
   }, [selectedGroup, selectedOrg, user?.uid]);
 
@@ -497,32 +600,45 @@ const Chat = () => {
       setSendingMessage(true);
 
       try {
-        await sendGroupMessage(selectedOrg.id, selectedGroup.id, {
-          text: newMessage.trim(),
-          type: "text",
-          senderId: user.uid,
-          senderName: user.name || user.email || "Unknown User",
-          senderAvatar: user.avatar || "",
-        });
+        if (editingMessageId) {
+          // Handle edit mode
+          await editGroupMessage(selectedOrg.id, selectedGroup.id, editingMessageId, newMessage.trim());
+          setEditingMessageId(null);
+          setEditingText("");
+          setNewMessage("");
+          toast({
+            title: "Message updated",
+            description: "Your message has been edited successfully."
+          });
+        } else {
+          // Handle new message mode
+          await sendGroupMessage(selectedOrg.id, selectedGroup.id, {
+            text: newMessage.trim(),
+            type: "text",
+            senderId: user.uid,
+            senderName: user.name || user.email || "Unknown User",
+            senderAvatar: user.avatar || "",
+          });
 
-        setNewMessage("");
+          setNewMessage("");
 
-        // Stop typing indicator since message was sent
-        if (isTyping) {
-          setIsTyping(false);
-          updateTypingStatus(
-            selectedOrg.id,
-            selectedGroup.id,
-            user.uid,
-            user.name,
-            false
-          );
+          // Stop typing indicator since message was sent
+          if (isTyping) {
+            setIsTyping(false);
+            updateTypingStatus(
+              selectedOrg.id,
+              selectedGroup.id,
+              user.uid,
+              user.name,
+              false
+            );
+          }
         }
       } catch (error) {
-        console.error("Error sending message:", error);
+        console.error("Error in message action:", error);
         toast({
           title: "Error",
-          description: "Failed to send message. Please try again.",
+          description: editingMessageId ? "Failed to update message." : "Failed to send message. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -628,6 +744,32 @@ const Chat = () => {
     if (isMobile) setSidebarOpen(false);
   };
 
+  const handleTogglePin = async (messageId: string, isPinned: boolean) => {
+    if (!selectedOrg || !selectedGroup) return;
+    try {
+      await togglePinGroupMessage(selectedOrg.id, selectedGroup.id, messageId, user?.uid || '', isPinned);
+    } catch (error) {
+      console.error("Error toggling pin:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update pin status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditMessage = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingText(message.text);
+    setNewMessage(message.text);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+    setNewMessage("");
+  };
+
   // All messages are already filtered by the Firebase subscription
 
   return (
@@ -690,6 +832,13 @@ const Chat = () => {
           </>
         )}
       </AnimatePresence>
+      
+      {/* Global Search Component */}
+      <GlobalSearch 
+        onSelectResult={handleSearchResult as any} 
+        currentOrgId={selectedOrg?.id}
+      />
+
       {/* Main area: show FeedDemo or Chat UI */}
       {showOrganizationSettings && selectedOrgForSettings ? (
         <OrganizationSettingsView
@@ -745,7 +894,8 @@ const Chat = () => {
           />
         </ErrorBoundary>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0 bg-background">
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 bg-background border-r relative">
           {/* Chat Header */}
           <div className="sticky top-0 z-20 bg-chat-header shadow-header border-b border-border px-2 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
@@ -841,17 +991,10 @@ const Chat = () => {
                                   className="flex items-center gap-3"
                                 >
                                   <Avatar className="w-9 h-9">
-                                    {avatarUrl ? (
-                                      <img
-                                        src={avatarUrl}
-                                        alt={displayName}
-                                        className="w-9 h-9 rounded-full object-cover"
-                                      />
-                                    ) : (
-                                      <AvatarFallback className="bg-primary/10 text-primary">
-                                        {displayName.charAt(0).toUpperCase()}
-                                      </AvatarFallback>
-                                    )}
+                                    <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                                    <AvatarFallback className="bg-primary/10 text-primary">
+                                      {displayName.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-grow">
                                     <p className="font-semibold">
@@ -877,159 +1020,160 @@ const Chat = () => {
                       </div>
                     </SheetContent>
                   </Sheet>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onSelect={() => setIsInviteDialogOpen(true)}>
-                        Add Member
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setIsLeaveGroupDialogOpen(true)}>
-                        Leave Group
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setIsGroupInfoSheetOpen(true)}>
-                        View Group Info
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <InviteToGroupDialog
-                    open={isInviteDialogOpen}
-                    onOpenChange={setIsInviteDialogOpen}
-                    org={selectedOrg}
-                    group={selectedGroup}
-                    userId={user.uid}
-                  />
-                  <AlertDialog
-                    open={isLeaveGroupDialogOpen}
-                    onOpenChange={setIsLeaveGroupDialogOpen}
-                  >
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Leave Group</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to leave this group? This action
-                          cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={async () => {
-                            if (selectedGroup && selectedOrg && user) {
-                              try {
-                                await leaveGroup({
-                                  organizationId: selectedOrg.id,
-                                  groupId: selectedGroup.id,
-                                  userId: user.uid,
-                                });
-                                toast({
-                                  title: "Success",
-                                  description: "You have left the group.",
-                                });
-                                setSelectedGroup(null);
-                              } catch (error) {
-                                console.error("Error leaving group:", error);
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to leave group.",
-                                  variant: "destructive",
-                                });
+                  <Button variant="ghost" size="icon" className="relative" onClick={() => setShowPinnedSidebar(!showPinnedSidebar)}>
+                    <Pin className="w-4 h-4" />
+                    {messages.filter(m => m.isPinned).length > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground shadow-sm">
+                        {messages.filter(m => m.isPinned).length}
+                      </span>
+                    )}
+                  </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => {
+                        // Trigger Cmd+K programmatically if needed, 
+                        // but standard way is to show hint or just let shortcut handle it.
+                        // For UX, I'll add a tooltip/hint or just open it.
+                        const event = new KeyboardEvent('keydown', {
+                          key: 'k',
+                          metaKey: true,
+                          bubbles: true
+                        });
+                        document.dispatchEvent(event);
+                      }}
+                    >
+                      <Search className="w-4 h-4" />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => setIsInviteDialogOpen(true)}>
+                          Add Member
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setIsLeaveGroupDialogOpen(true)}>
+                          Leave Group
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setIsGroupInfoSheetOpen(true)}>
+                          View Group Info
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <InviteToGroupDialog
+                      open={isInviteDialogOpen}
+                      onOpenChange={setIsInviteDialogOpen}
+                      org={selectedOrg}
+                      group={selectedGroup}
+                      userId={user.uid}
+                    />
+                    <AlertDialog
+                      open={isLeaveGroupDialogOpen}
+                      onOpenChange={setIsLeaveGroupDialogOpen}
+                    >
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Leave Group</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to leave this group? This action
+                            cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              if (selectedGroup && selectedOrg && user) {
+                                try {
+                                  await leaveGroup({
+                                    organizationId: selectedOrg.id,
+                                    groupId: selectedGroup.id,
+                                    userId: user.uid,
+                                  });
+                                  toast({
+                                    title: "Success",
+                                    description: "You have left the group.",
+                                  });
+                                  setSelectedGroup(null);
+                                } catch (error) {
+                                  console.error("Error leaving group:", error);
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to leave group.",
+                                    variant: "destructive",
+                                  });
+                                }
                               }
-                            }
-                          }}
-                        >
-                          Leave
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                  <GroupInfoSheet
-                    open={isGroupInfoSheetOpen}
-                    onOpenChange={setIsGroupInfoSheetOpen}
-                    group={selectedGroup}
-                    org={selectedOrg}
-                    members={groupMembers}
-                    onSuccess={(updatedGroup) => setSelectedGroup(updatedGroup)}
-                  />
-                </>
-              )}
+                            }}
+                          >
+                            Leave
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <GroupInfoSheet
+                      open={isGroupInfoSheetOpen}
+                      onOpenChange={setIsGroupInfoSheetOpen}
+                      group={selectedGroup}
+                      org={selectedOrg}
+                      members={groupMembers}
+                      onSuccess={(updatedGroup) => setSelectedGroup(updatedGroup)}
+                    />
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-          {/* Main chat scrollable area */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto bg-background px-2 sm:px-4 lg:px-0">
-              <div className="py-4 px-2 w-full">
+
+            {/* Chat Messages */}
+            <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-1 sm:px-4 py-6 custom-scrollbar flex flex-col">
                 {messagesLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <div className="flex-1 flex flex-col items-center justify-center space-y-4">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="w-2 h-2 bg-primary/40 rounded-full animate-bounce"></div>
+                    </div>
+                    <p className="text-sm text-muted-foreground animate-pulse">Loading conversation...</p>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center mb-4">
+                      <MessageSquare className="w-8 h-8 text-primary/20" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">No messages yet</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                      Start the conversation by sending a message below!
+                    </p>
                   </div>
                 ) : (
                   <>
-                    {/* Empty state for no messages */}
-                    {(selectedGroup
-                      ? messages
-                      : directMessages[selectedChat?.id] || []
-                    ).length === 0 &&
-                      !messagesLoading && (
-                        <div className="flex flex-col items-center justify-center h-64 text-center">
-                          <div className="text-muted-foreground mb-2">
-                            {selectedGroup ? (
-                              <>
-                                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <h3 className="text-lg font-medium mb-2">
-                                  Welcome to {selectedGroup.name}!
-                                </h3>
-                                <p className="text-sm">
-                                  Start the conversation by sending the first
-                                  message.
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <div className="w-12 h-12 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
-                                  <span className="text-lg">
-                                    {selectedChat?.name.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <h3 className="text-lg font-medium mb-2">
-                                  Chat with {selectedChat?.name}
-                                </h3>
-                                <p className="text-sm">
-                                  Send a message to start your conversation.
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    <AnimatePresence>
-                      {(selectedGroup
-                        ? messages
-                        : directMessages[selectedChat?.id] || []
-                      ).map((message, index, arr) => {
-                        const prevMessage = arr[index - 1];
-                        const isConsecutive =
-                          prevMessage &&
-                          prevMessage.senderId === message.senderId &&
-                          message.timestamp.getTime() -
-                            prevMessage.timestamp.getTime() <
-                            60000;
+                    <AnimatePresence initial={false}>
+                      {messages
+                        .filter(m => !m.parentMessageId) // Only show top-level messages
+                        .map((msg, index) => {
+                        const isConsecutive = index > 0 && messages[index - 1].senderId === msg.senderId;
                         return (
-                          <ChatBubble
-                            key={message.id}
-                            message={message}
-                            isConsecutive={isConsecutive}
-                            currentUserRole={selectedOrg?.userRole}
-                            organizationId={selectedOrg?.id}
-                            groupId={selectedGroup?.id}
-                            onMessageDeleted={() => {
-                              // Refresh messages when a message is deleted
-                              // The subscription should handle this automatically
-                            }}
-                          />
+                          <div key={msg.id} id={`msg-${msg.id}`} className="rounded-2xl">
+                            <ChatBubble
+                              message={msg}
+                              isConsecutive={isConsecutive}
+                              currentUserRole={selectedOrg?.userRole}
+                              organizationId={selectedOrg?.id}
+                              groupId={selectedGroup?.id}
+                              onTogglePin={handleTogglePin}
+                              onEditMessage={(msg) => {
+                                setEditingMessageId(msg.id);
+                                setEditingText(msg.text);
+                                setNewMessage(msg.text);
+                              }}
+                              onMessageDeleted={() => {}}
+                              onReply={(msg) => setSelectedThreadMessage(msg)}
+                            />
+                          </div>
                         );
                       })}
                     </AnimatePresence>
@@ -1041,6 +1185,19 @@ const Chat = () => {
             </div>
             {/* Message Input */}
             <div className="p-2 sm:p-4 bg-chat-header border-t border-border sticky bottom-0 z-10">
+              {editingMessageId && (
+                <div className="mb-2 px-3 py-1.5 bg-primary/5 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <Edit2 className="w-3 h-3 text-primary shrink-0" />
+                    <span className="text-[11px] text-muted-foreground truncate">
+                      Editing: {editingText}
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={cancelEditing} className="h-5 w-5 rounded-full">
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="flex-1 relative">
                   <Input
@@ -1067,6 +1224,23 @@ const Chat = () => {
               </div>
             </div>
           </div>
+          {/* Thread Sidebar */}
+          {selectedThreadMessage && (
+            <ThreadView
+              parentMessage={selectedThreadMessage}
+              orgId={selectedOrg?.id}
+              groupId={selectedGroup?.id}
+              onClose={() => setSelectedThreadMessage(null)}
+            />
+          )}
+          {showPinnedSidebar && (
+            <PinnedMessagesSidebar
+              messages={messages}
+              onClose={() => setShowPinnedSidebar(false)}
+              onTogglePin={handleTogglePin}
+              onMessageClick={scrollToMessage}
+            />
+          )}
         </div>
       )}
     </div>
