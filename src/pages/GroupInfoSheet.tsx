@@ -154,7 +154,7 @@ export const GroupInfoSheet: React.FC<GroupInfoSheetProps> = ({
           <div className="flex items-center">
             {members.slice(0, 5).map((m, index) => (
               <div
-                key={m.uid}
+                key={m.userId || m.uid || `member-${index}`}
                 className="relative"
                 style={{ marginLeft: index === 0 ? 0 : "-12px" }} // overlap effect
               >
