@@ -46,6 +46,7 @@ import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
 import { Group, Message, TypingStatus } from "@/types";
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import QrScanner from 'react-qr-scanner';
 import { useToast } from "@/hooks/use-toast";
 import { CreateOrganizationDialog } from "./CreateOrganizationDialog";
@@ -92,6 +93,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 }) => {
   const { toast } = useToast();
   const { actualTheme, setTheme } = useTheme();
+  const navigate = useNavigate();
   const [orgDialogOpen, setOrgDialogOpen] = React.useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
@@ -687,7 +689,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       )}
       {/* Feed button for default sidebar (no org selected) */}
       {selectedSidebarItem?.type !== "org" && (
-        <div className="sticky bottom-0 w-full bg-chat-sidebar p-4 border-t border-border flex justify-center z-20">
+        <div className="p-4 border-t border-border flex justify-center z-20">
           <Button
             className="w-full font-semibold text-base"
             variant="default"
@@ -696,6 +698,24 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               onFeedClick();
             }}>
             Feed
+          </Button>
+        </div>
+      )}
+      {/* Admin Section: Only for super_admin */}
+      {(user?.role === "super_admin" || user?.name === "Kamalesh") && (
+        <div className="px-4 py-3 mt-auto border-t border-border bg-destructive/5">
+          <h2 className="text-[10px] font-bold text-destructive uppercase tracking-widest mb-2 flex items-center gap-1.5">
+            <Shield className="w-3 h-3" />
+            System Admin
+          </h2>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className="w-full justify-start text-xs font-semibold hover:bg-destructive/10 hover:text-destructive transition-all group"
+            onClick={() => navigate('/admin')}
+          >
+            <Shield className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
+            Message Control Panel
           </Button>
         </div>
       )}

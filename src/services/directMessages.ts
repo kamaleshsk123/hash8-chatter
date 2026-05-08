@@ -573,7 +573,6 @@ export const deleteDirectMessage = async (
   }
 };
 
-// Soft delete message
 export const softDeleteDirectMessage = async (
   conversationId: string,
   messageId: string,
@@ -582,6 +581,13 @@ export const softDeleteDirectMessage = async (
 ) => {
   try {
     const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
+    const messageDoc = await getDoc(messageRef);
+    
+    if (!messageDoc.exists()) {
+      throw new Error('Message not found');
+    }
+
+    const messageData = messageDoc.data();
     
     // Check if user is a participant of the conversation
     const participants = conversationId.split('_');
@@ -589,21 +595,13 @@ export const softDeleteDirectMessage = async (
       throw new Error('Unauthorized to delete messages in this conversation');
     }
 
-    // If it's a clear chat operation, we don't need to check if the user is the sender
-    if (!isClearChat) {
-      const messageDoc = await getDoc(messageRef);
-      if (!messageDoc.exists()) {
-        throw new Error('Message not found');
-      }
-      const messageData = messageDoc.data();
-      
-      // For individual soft-delete, only allow sender
-      if (messageData.senderId !== userId) {
-        throw new Error('Unauthorized to delete this message');
-      }
+    // If not a clear chat operation, only allow sender to delete their own messages
+    if (!isClearChat && messageData.senderId !== userId) {
+      throw new Error('Unauthorized to delete this message');
     }
     
     await updateDoc(messageRef, {
+      originalText: messageData.text || '',
       text: 'This message has been deleted',
       deleted: true,
       deletedAt: serverTimestamp()

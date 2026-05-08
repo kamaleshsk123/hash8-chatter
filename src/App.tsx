@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
+import AdminControl from "./pages/AdminControl";
 import NotFound from "./pages/NotFound";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { useToast } from "@/components/ui/use-toast";
@@ -85,6 +86,14 @@ const App = () => {
                     element={
                       <ProtectedRoute>
                         <Chat />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute>
+                        <AdminControl />
                       </ProtectedRoute>
                     }
                   />

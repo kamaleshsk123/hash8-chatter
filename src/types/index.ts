@@ -22,7 +22,7 @@ export interface User {
   fcmTokens?: string[];
 }
 
-export type UserRole = 'admin' | 'moderator' | 'member';
+export type UserRole = 'super_admin' | 'admin' | 'moderator' | 'member';
 
 export interface ModeratorPermissions {
   canManageMessages: boolean;
