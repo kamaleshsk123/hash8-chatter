@@ -22,6 +22,7 @@ interface DirectMessageHeaderProps {
     role?: string;
   };
   onClearChat?: () => void; // optional callback to clear chat
+  onRequestRecovery?: () => void;
   messages?: any[];
   onTogglePinnedSidebar?: () => void;
 }
@@ -29,10 +30,13 @@ interface DirectMessageHeaderProps {
 export const DirectMessageHeader: React.FC<DirectMessageHeaderProps> = ({
   otherUser,
   onClearChat,
+  onRequestRecovery,
   messages = [],
   onTogglePinnedSidebar
 }) => {
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+
 
   return (
     <div className="flex items-center justify-between p-4 border-b bg-card">
@@ -74,6 +78,11 @@ export const DirectMessageHeader: React.FC<DirectMessageHeaderProps> = ({
             <DropdownMenuItem onSelect={() => setShowClearDialog(true)}>
               Clear Chat
             </DropdownMenuItem>
+            {onRequestRecovery && (
+              <DropdownMenuItem onSelect={() => setShowRecoveryDialog(true)}>
+                Request Chat Recovery
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -99,6 +108,30 @@ export const DirectMessageHeader: React.FC<DirectMessageHeaderProps> = ({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <AlertDialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Request Chat Recovery</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will send a request to the administrator to recover your cleared messages. 
+                Recovery is subject to approval.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (onRequestRecovery) onRequestRecovery();
+                  setShowRecoveryDialog(false);
+                }}
+              >
+                Send Request
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </div>
   );

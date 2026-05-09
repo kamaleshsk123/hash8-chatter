@@ -228,6 +228,8 @@ export const subscribeToDirectMessages = (
         pinnedBy: data.pinnedBy,
         pinnedAt: data.pinnedAt?.toDate(),
         deleted: data.deleted || false,
+        isCleared: data.isCleared || false,
+        clearedAt: data.clearedAt?.toDate(),
         originalText: data.originalText,
         hasPendingWrites: doc.metadata.hasPendingWrites, // Added for offline support
         ...(data.type === 'poll' && data.pollData ? { pollData: data.pollData } : {})
@@ -563,12 +565,21 @@ export const deleteDirectMessage = async (
       throw new Error('Unauthorized to delete this message');
     }
     
-    // Delete associated file if exists
-    if (messageData.filePath) {
-      await deleteFile(messageData.filePath);
+    // If it's a clear chat operation, perform a soft delete (recoverable for 6 months)
+    if (isClearChat) {
+      await updateDoc(messageRef, {
+        isCleared: true,
+        clearedAt: serverTimestamp(),
+        deleted: true,
+        originalText: messageData.text || ''
+      });
+    } else {
+      // For individual deletions, we can still do a hard delete if that's the intended behavior,
+      // or we can also switch this to soft delete if desired. 
+      // The user specifically asked for "Clear Chat" recovery.
+      await deleteDoc(messageRef);
     }
-    
-    await deleteDoc(messageRef);
+
   } catch (error) {
     console.error('Error deleting message:', error);
     throw error;
@@ -709,3 +720,82 @@ export const togglePinDirectMessage = async (
     throw error;
   }
 };
+
+// === RECOVERY REQUESTS ===
+
+export const createRecoveryRequest = async (conversationId: string, userId: string, userName: string) => {
+  try {
+    const requestId = generateUUID();
+    const requestRef = doc(db, 'recovery_requests', requestId);
+    
+    await setDoc(requestRef, {
+      id: requestId,
+      conversationId,
+      userId,
+      userName,
+      status: 'pending',
+      requestedAt: serverTimestamp()
+    });
+    
+    return requestId;
+  } catch (error) {
+    console.error('Error creating recovery request:', error);
+    throw error;
+  }
+};
+
+export const getRecoveryRequests = async () => {
+  try {
+    const q = query(collection(db, 'recovery_requests'), where('status', '==', 'pending'), orderBy('requestedAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      requestedAt: doc.data().requestedAt?.toDate() || new Date()
+    }));
+  } catch (error) {
+    console.error('Error getting recovery requests:', error);
+    throw error;
+  }
+};
+
+export const handleRecoveryRequest = async (requestId: string, status: 'approved' | 'denied') => {
+  try {
+    const requestRef = doc(db, 'recovery_requests', requestId);
+    const requestSnap = await getDoc(requestRef);
+    
+    if (!requestSnap.exists()) throw new Error('Request not found');
+    
+    const requestData = requestSnap.data();
+    const { conversationId } = requestData;
+    
+    if (status === 'approved') {
+      // Restore all cleared messages in this conversation
+      const messagesRef = collection(db, `direct_messages/${conversationId}/messages`);
+      // Since isCleared: true was set, we find those
+      const q = query(messagesRef, where('isCleared', '==', true));
+      const snapshot = await getDocs(q);
+      
+      const restorePromises = snapshot.docs.map(messageDoc => 
+        updateDoc(messageDoc.ref, {
+          isCleared: false,
+          deleted: false,
+          restoredAt: serverTimestamp()
+        })
+      );
+      
+      await Promise.all(restorePromises);
+    }
+    
+    // Update request status
+    await updateDoc(requestRef, {
+      status,
+      processedAt: serverTimestamp()
+    });
+    
+  } catch (error) {
+    console.error('Error handling recovery request:', error);
+    throw error;
+  }
+};
+

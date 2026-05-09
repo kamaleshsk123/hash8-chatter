@@ -5,6 +5,9 @@ import { Message } from '@/types';
 export interface AdminMessage extends Message {
   path: string;
   context?: string; // e.g. "Group: Developers" or "DM: Alice <> Bob"
+  isCleared?: boolean;
+  clearedAt?: any;
+  restoredAt?: any;
 }
 
 export const getAllMessages = async (limitCount: number = 200): Promise<AdminMessage[]> => {
@@ -53,6 +56,9 @@ export const getAllMessages = async (limitCount: number = 200): Promise<AdminMes
         id: messageDoc.id,
         ...data,
         timestamp: data.timestamp?.toDate() || new Date(),
+        isCleared: data.isCleared || false,
+        clearedAt: data.clearedAt?.toDate(),
+        restoredAt: data.restoredAt?.toDate(),
         path,
         context
       } as AdminMessage;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getAllMessages, AdminMessage } from '@/services/admin';
+import { getRecoveryRequests, handleRecoveryRequest } from '@/services/firebase';
 import { 
   Shield, 
   Search, 
@@ -10,9 +11,12 @@ import {
   Clock, 
   ExternalLink,
   ChevronDown,
-  RefreshCw
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { 
@@ -33,10 +37,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from '@/components/ui/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const AdminControl = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<AdminMessage[]>([]);
+  const [recoveryRequests, setRecoveryRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'group' | 'dm'>('all');
@@ -46,25 +53,64 @@ const AdminControl = () => {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      fetchMessages();
+      fetchAllData();
     }
   }, [isSuperAdmin]);
 
-  const fetchMessages = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      const allMsgs = await getAllMessages(500);
+      const [allMsgs, allRequests] = await Promise.all([
+        getAllMessages(500),
+        getRecoveryRequests()
+      ]);
       setMessages(allMsgs);
+      setRecoveryRequests(allRequests);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to fetch messages. Ensure you have proper permissions.",
+        description: "Failed to fetch data. Ensure you have proper permissions.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const handleApproveRecovery = async (requestId: string) => {
+    try {
+      await handleRecoveryRequest(requestId, 'approved');
+      toast({
+        title: "Success",
+        description: "Recovery request approved. Messages have been restored.",
+      });
+      fetchAllData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to approve request.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDenyRecovery = async (requestId: string) => {
+    try {
+      await handleRecoveryRequest(requestId, 'denied');
+      toast({
+        title: "Request Denied",
+        description: "The recovery request has been denied.",
+      });
+      fetchAllData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to deny request.",
+        variant: "destructive"
+      });
+    }
+  };
+
 
   if (!isSuperAdmin) {
     return (
@@ -107,7 +153,7 @@ const AdminControl = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={fetchMessages} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={fetchAllData} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -151,108 +197,210 @@ const AdminControl = () => {
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-6">
-          <Table>
-            <TableHeader className="bg-muted/50 rounded-t-xl">
-              <TableRow>
-                <TableHead className="w-[180px]">Sender</TableHead>
-                <TableHead className="w-[150px]">Context</TableHead>
-                <TableHead>Message Content</TableHead>
-                <TableHead className="w-[140px]">Timestamp</TableHead>
-                <TableHead className="w-[100px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={5} className="h-16 text-center animate-pulse bg-muted/10">
-                      Loading data...
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : filteredMessages.length > 0 ? (
-                filteredMessages.map((msg) => (
-                  <TableRow key={msg.id} className="hover:bg-muted/30 transition-colors group">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-8 h-8 border">
-                          <AvatarImage src={msg.senderAvatar} />
-                          <AvatarFallback className="text-[10px] bg-primary/10">
-                            {msg.senderName.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold truncate max-w-[120px]">{msg.senderName}</span>
-                          <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{msg.senderId}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <Badge variant={msg.path.includes('organizations') ? "default" : "outline"} className="text-[9px] w-fit">
-                          {msg.path.includes('organizations') ? 'GROUP' : 'DIRECT'}
-                        </Badge>
-                        <span className="text-[11px] font-medium text-muted-foreground truncate max-w-[130px]">
-                          {msg.context}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xl">
-                        {msg.deleted ? (
-                          <div className="flex flex-col gap-1">
-                            <Badge variant="destructive" className="text-[9px] w-fit mb-1">DELETED</Badge>
-                            <p className="text-sm leading-relaxed break-words opacity-70 italic line-through">
-                              {msg.text}
-                            </p>
-                            <p className="text-sm leading-relaxed break-words font-medium text-destructive">
-                              Original: {msg.originalText || "(No original text captured)"}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-sm leading-relaxed break-words line-clamp-2 group-hover:line-clamp-none transition-all duration-300">
-                            {msg.text || <span className="italic text-muted-foreground">No text content (Media/File)</span>}
-                          </p>
-                        )}
-                        {msg.type !== 'text' && (
-                          <Badge variant="secondary" className="mt-1 text-[9px]">
-                            {msg.type.toUpperCase()}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col text-[11px] text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {format(msg.timestamp, 'HH:mm:ss')}
-                        </div>
-                        <span>{format(msg.timestamp, 'MMM dd, yyyy')}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                      <MessageSquare className="w-12 h-12 opacity-20" />
-                      <p>No messages found matching your criteria.</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
+      <Tabs defaultValue="messages" className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-6 border-b bg-card">
+          <TabsList className="bg-transparent gap-6 h-12">
+            <TabsTrigger 
+              value="messages" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-2 h-12"
+            >
+              Message Logs
+            </TabsTrigger>
+            <TabsTrigger 
+              value="requests" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-2 h-12 relative"
+            >
+              Recovery Requests
+              {recoveryRequests.length > 0 && (
+                <Badge className="ml-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 px-1.5 py-0.5 text-[10px]">
+                  {recoveryRequests.length}
+                </Badge>
               )}
-            </TableBody>
-          </Table>
+            </TabsTrigger>
+          </TabsList>
         </div>
-      </ScrollArea>
+
+        <TabsContent value="messages" className="flex-1 overflow-hidden m-0">
+          <ScrollArea className="h-full">
+            <div className="p-6">
+              <Table>
+                <TableHeader className="bg-muted/50 rounded-t-xl">
+                  <TableRow>
+                    <TableHead className="w-[180px]">Sender</TableHead>
+                    <TableHead className="w-[150px]">Context</TableHead>
+                    <TableHead>Message Content</TableHead>
+                    <TableHead className="w-[140px]">Timestamp</TableHead>
+                    <TableHead className="w-[100px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={5} className="h-16 text-center animate-pulse bg-muted/10">
+                          Loading data...
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredMessages.length > 0 ? (
+                    filteredMessages.map((msg) => (
+                      <TableRow key={msg.id} className="hover:bg-muted/30 transition-colors group">
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-8 h-8 border">
+                              <AvatarImage src={msg.senderAvatar} />
+                              <AvatarFallback className="text-[10px] bg-primary/10">
+                                {msg.senderName.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold truncate max-w-[120px]">{msg.senderName}</span>
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{msg.senderId}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={msg.path.includes('organizations') ? "default" : "outline"} className="text-[9px] w-fit">
+                              {msg.path.includes('organizations') ? 'GROUP' : 'DIRECT'}
+                            </Badge>
+                            <span className="text-[11px] font-medium text-muted-foreground truncate max-w-[130px]">
+                              {msg.context}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-xl">
+                            {msg.deleted ? (
+                              <div className="flex flex-col gap-1">
+                                <Badge variant={msg.isCleared ? "warning" : "destructive"} className="text-[9px] w-fit mb-1">
+                                  {msg.isCleared ? 'CLEARED' : 'DELETED'}
+                                </Badge>
+                                <p className="text-sm leading-relaxed break-words opacity-70 italic line-through">
+                                  {msg.text}
+                                </p>
+                                <p className="text-sm leading-relaxed break-words font-medium text-destructive">
+                                  Original: {msg.originalText || "(No original text captured)"}
+                                </p>
+                                {msg.isCleared && msg.clearedAt && (
+                                  <p className="text-[10px] text-orange-500 font-bold mt-1">
+                                    Recoverable until: {format(addMonths(new Date(msg.clearedAt), 6), 'MMM dd, yyyy')}
+                                  </p>
+                                )}
+                                {msg.restoredAt && (
+                                  <Badge variant="outline" className="mt-1 text-[9px] border-emerald-500 text-emerald-600">
+                                    RESTORED
+                                  </Badge>
+                                )}
+                              </div>
+
+                            ) : (
+                              <p className="text-sm leading-relaxed break-words line-clamp-2 group-hover:line-clamp-none transition-all duration-300">
+                                {msg.text || <span className="italic text-muted-foreground">No text content (Media/File)</span>}
+                              </p>
+                            )}
+                            {msg.type !== 'text' && (
+                              <Badge variant="secondary" className="mt-1 text-[9px]">
+                                {msg.type.toUpperCase()}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {format(msg.timestamp, 'HH:mm:ss')}
+                            </div>
+                            <span>{format(msg.timestamp, 'MMM dd, yyyy')}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-64 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <MessageSquare className="w-12 h-12 opacity-20" />
+                          <p>No messages found matching your criteria.</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="requests" className="flex-1 overflow-hidden m-0">
+          <ScrollArea className="h-full">
+            <div className="p-6">
+              <Table>
+                <TableHeader className="bg-muted/50 rounded-t-xl">
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Conversation ID</TableHead>
+                    <TableHead>Requested At</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recoveryRequests.length > 0 ? (
+                    recoveryRequests.map((req) => (
+                      <TableRow key={req.id}>
+                        <TableCell>
+                          <div className="font-medium">{req.userName}</div>
+                          <div className="text-xs text-muted-foreground">{req.userId}</div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{req.conversationId}</TableCell>
+                        <TableCell className="text-xs">
+                          {format(req.requestedAt, 'MMM dd, yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            onClick={() => handleApproveRecovery(req.id)}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Approve
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 text-destructive hover:bg-destructive/5"
+                            onClick={() => handleDenyRecovery(req.id)}
+                          >
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Deny
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-64 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <AlertCircle className="w-12 h-12 opacity-20" />
+                          <p>No pending recovery requests.</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+
 
       {/* Footer Stat */}
       <footer className="border-t px-6 py-2 bg-muted/20 flex items-center justify-between text-[10px] text-muted-foreground">

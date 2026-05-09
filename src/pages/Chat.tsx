@@ -1192,31 +1192,55 @@ const Chat = () => {
                 ) : (
                   <>
                     <AnimatePresence initial={false}>
-                      {messages
-                        .filter(m => !m.parentMessageId) // Only show top-level messages
-                        .map((msg, index) => {
-                        const isConsecutive = index > 0 && messages[index - 1].senderId === msg.senderId;
-                        return (
-                          <div key={msg.id} id={`msg-${msg.id}`} className="rounded-2xl">
-                            <ChatBubble
-                              message={msg}
-                              isConsecutive={isConsecutive}
-                              currentUserRole={selectedOrg?.userRole}
-                              organizationId={selectedOrg?.id}
-                              groupId={selectedGroup?.id}
-                              onTogglePin={handleTogglePin}
-                              onEditMessage={(msg) => {
-                                setEditingMessageId(msg.id);
-                                setEditingText(msg.text);
-                                setNewMessage(msg.text);
-                              }}
-                              onMessageDeleted={() => {}}
-                              onReply={(msg) => setSelectedThreadMessage(msg)}
-                              onViewVoters={(msg) => setSelectedPollIdForVoters(msg.id)}
-                            />
+                      {(() => {
+                        const topLevelMessages = messages.filter(m => !m.parentMessageId);
+                        const groups: { date: string; msgs: Message[] }[] = [];
+                        
+                        topLevelMessages.forEach(msg => {
+                          const dateStr = formatChatDate(msg.timestamp);
+                          const lastGroup = groups[groups.length - 1];
+                          if (lastGroup && lastGroup.date === dateStr) {
+                            lastGroup.msgs.push(msg);
+                          } else {
+                            groups.push({ date: dateStr, msgs: [msg] });
+                          }
+                        });
+
+                        return groups.map((group) => (
+                          <div key={group.date} className="relative">
+                            <div className="flex justify-center my-6 sticky top-2 z-10">
+                              <div className="bg-muted/80 backdrop-blur-sm text-muted-foreground text-[11px] font-medium px-3 py-1 rounded-full shadow-sm border border-border/50">
+                                {group.date}
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              {group.msgs.map((msg, index) => {
+                                const isConsecutive = index > 0 && group.msgs[index - 1].senderId === msg.senderId;
+                                return (
+                                  <div key={msg.id} id={`msg-${msg.id}`} className="rounded-2xl">
+                                    <ChatBubble
+                                      message={msg}
+                                      isConsecutive={isConsecutive}
+                                      currentUserRole={selectedOrg?.userRole}
+                                      organizationId={selectedOrg?.id}
+                                      groupId={selectedGroup?.id}
+                                      onTogglePin={handleTogglePin}
+                                      onEditMessage={(msg) => {
+                                        setEditingMessageId(msg.id);
+                                        setEditingText(msg.text);
+                                        setNewMessage(msg.text);
+                                      }}
+                                      onMessageDeleted={() => {}}
+                                      onReply={(msg) => setSelectedThreadMessage(msg)}
+                                      onViewVoters={(msg) => setSelectedPollIdForVoters(msg.id)}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        );
-                      })}
+                        ));
+                      })()}
                     </AnimatePresence>
                     <TypingIndicator typingUsers={typingUsers} />
                   </>

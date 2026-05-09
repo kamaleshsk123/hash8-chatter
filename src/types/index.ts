@@ -88,6 +88,8 @@ export interface Message {
   hasPendingWrites?: boolean; // Added for offline support
   parentMessageId?: string; // For threads
   replyCount?: number;      // Number of replies in the thread
+  isCleared?: boolean;
+  clearedAt?: Date;
 }
 
 export interface ReadReceipt {
