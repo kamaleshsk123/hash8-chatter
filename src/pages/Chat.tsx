@@ -48,6 +48,7 @@ import {
   Edit2,
   MessageSquare,
   BarChart2,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { CreatePollDialog } from "@/components/CreatePollDialog";
 import { PollVotersSidebar } from "@/components/PollVotersSidebar";
@@ -87,6 +88,7 @@ import { GroupInfoSheet } from "./GroupInfoSheet";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ThreadView } from "@/components/ThreadView";
 import { PinnedMessagesSidebar } from "@/components/PinnedMessagesSidebar";
+import { CalendarView } from "@/components/calendar/CalendarView";
 
 // Mock data for development
 const mockGroups: Group[] = [
@@ -237,10 +239,10 @@ const Chat = () => {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Initialize view from URL parameters or default to "your-feed"
-  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">(() => {
+  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message" | "calendar">(() => {
     const urlView = searchParams.get('view');
-    if (urlView && ['chat', 'feed', 'your-feed', 'direct_message'].includes(urlView)) {
-      return urlView as "chat" | "feed" | "your-feed" | "direct_message";
+    if (urlView && ['chat', 'feed', 'your-feed', 'direct_message', 'calendar'].includes(urlView)) {
+      return urlView as "chat" | "feed" | "your-feed" | "direct_message" | "calendar";
     }
     return "your-feed";
   });
@@ -864,6 +866,11 @@ const Chat = () => {
                 setShowOrganizationSettings(true);
               }}
               onOrganizationUpdate={handleOrganizationUpdate}
+              onCalendarClick={() => {
+                setView("calendar");
+                updateURL("calendar", selectedOrg?.id, selectedGroup?.id);
+                if (isMobile) setSidebarOpen(false);
+              }}
               refreshOrganizationsRef={refreshOrganizationsRef}
               onGroupSelect={handleSelectGroup}
               selectedGroupId={showOrganizationSettings || view === "feed" || view === "your-feed" ? null : selectedGroup?.id}
@@ -929,10 +936,18 @@ const Chat = () => {
               } else {
                 setView("chat");
                 setSelectedGroup(null);
+                updateURL("chat");
               }
             }}
           />
         </ErrorBoundary>
+      ) : view === "calendar" ? (
+        <div className="flex-1 overflow-hidden">
+          <CalendarView 
+            orgId={selectedOrg?.id} 
+            groupId={selectedGroup?.id} 
+          />
+        </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col min-h-0 bg-background border-r relative">
@@ -1068,6 +1083,17 @@ const Chat = () => {
                       </span>
                     )}
                   </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => {
+                        setView("calendar");
+                        updateURL("calendar", selectedOrg?.id, selectedGroup?.id);
+                      }}
+                      title="Group Calendar"
+                    >
+                      <CalendarIcon className="w-4 h-4" />
+                    </Button>
                     <Button 
                       variant="ghost" 
                       size="icon" 

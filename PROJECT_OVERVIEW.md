@@ -6,63 +6,56 @@
 | **Authentication** | ✅ Working | Google OAuth & email/password (`AuthContext.tsx`) |
 | **Organizations** | ✅ Working | Create / join, member management |
 | **Groups** | ✅ Working | Group CRUD, invites, real‑time chat |
-| **Group Chat** | ✅ Working | Live messages, reactions, typing, read receipts |
-| **Direct Messages** | ✅ Working | 1‑on‑1 chat, file/voice support |
+| **Group Chat** | ✅ Working | Live messages, reactions, typing, read receipts, **Sticky Date Separators** |
+| **Direct Messages** | ✅ Working | 1‑on‑1 chat, file/voice support, **Clear Chat (Soft Delete)** |
 | **Feed** | ✅ Working (partial) | `FeedDemo.tsx` (org‑scoped feed), `YourFeed.tsx` (global demo) |
 | **User Profile** | ✅ Working | Edit profile, avatar, org view |
-| **Moderation** | ✅ Working | Role‑based actions, audit log |
+| **Moderation** | ✅ Working | Role‑based actions, audit log, **Message Recovery Dashboard** |
 | **Dark Mode** | ✅ Working | Theme toggle |
 | **Voice & File Sharing** | ✅ Working | Recorder, Cloudinary uploader |
 | **Offline Cache** | ⚠️ Partial | IndexedDB persistence, custom sync service |
 | **Bluetooth P2P** | ❌ Non‑functional | Web Bluetooth API errors |
 
 ## 2️⃣ Critical Bugs / Technical Debt (Fix First)
-| # | Issue | Why It Blocks Progress | Quick Fix Idea |
-|---|-------|------------------------|----------------|
-| **1** | `firebase.ts` is a 1,600‑line monolith | ✅ **FIXED** | Split into focused service modules. |
-| **2** | Feed not org‑scoped | ✅ **FIXED** | Posts moved under `organizations/{orgId}/posts`. |
-| **3** | `YourFeed.tsx` uses hard‑coded mock data | ✅ **FIXED** | Replaced with real Firestore `onSnapshot` listener. |
-| **4** | Bluetooth auto‑enable throws `SecurityError` | ✅ **FIXED** | Auto-enable removed; manual scan implemented. |
-| **5** | `getUsersByIds` performs N sequential reads | ✅ **FIXED** | Batched reads with `in` query implemented. |
-| **6** | Notification switches in `UserProfile.tsx` are UI‑only | ✅ **FIXED** | Wired to Firestore persistence. |
-| **7** | Security & Activity tabs are placeholders | ✅ **FIXED** | Password reset, sign out, and live stats added. |
-| **8** | Large components manage all state locally | ⚠️ **PARTIAL** | Core services split; shared store planned for Sprint 2. |
-| **9** | Routing limited to `/login` & `/chat` | ⚠️ **PARTIAL** | URL-based state persistence added. |
+| # | Issue | Why It Blocks Progress | Status |
+|---|-------|------------------------|--------|
+| **1** | `firebase.ts` is a 1,600‑line monolith | Split into focused service modules. | ✅ FIXED |
+| **2** | Feed not org‑scoped | Posts moved under `organizations/{orgId}/posts`. | ✅ FIXED |
+| **3** | `YourFeed.tsx` uses hard‑coded mock data | Replaced with real Firestore `onSnapshot` listener. | ✅ FIXED |
+| **4** | Bluetooth auto‑enable throws `SecurityError` | Auto-enable removed; manual scan implemented. | ✅ FIXED |
+| **5** | `getUsersByIds` performs N sequential reads | Batched reads with `in` query implemented. | ✅ FIXED |
+| **6** | Notification switches are UI‑only | Wired to Firestore persistence. | ✅ FIXED |
+| **7** | Security & Activity tabs are placeholders | Password reset, sign out, and live stats added. | ✅ FIXED |
+| **8** | Clear Chat displays deleted placeholders | Refactored to hide cleared messages while keeping data for audit. | ✅ FIXED |
+| **9** | Sticky Date Separators overlapping | Grouped by day with container-based sticky headers. | ✅ FIXED |
 
 ## 3️⃣ High‑Impact Feature Roadmap
-| Tier | Feature | Why It Matters | Rough Effort |
-|------|----------|----------------|--------------|
-| **P0** (must‑do) | Technical Debt Cleanup | ✅ **COMPLETE** | 2‑4 days total |
-| **P1** | Push Notifications (Web Push + FCM) | ✅ **COMPLETE** | 2‑3 days |
-| **P2** | Global Search (messages, users, posts) | ✅ **COMPLETE** | 2 days |
-| **P3** | Pinned Messages | ✅ **COMPLETE** | Persistent sidebar + highlight |
-| **P4** | Message Threads | ✅ **COMPLETE** | UI refinements & logic added |
-| **P5** | Audio/Video Calls (WebRTC) | ⏸️ **PAUSED** | 5‑7 days |
-| **P6** | PWA / Installable App | ⏸️ **PAUSED** | 2‑3 days |
-| **P7** | Polls & Surveys | ✅ **COMPLETE** | Interactive UI + live results |
-| **P8** | Shared Calendar / Events | **NEXT UP** | 3‑4 days |
-| **P9** | Task Management | **PLANNED** | 2-3 days |
+| Tier | Feature | Why It Matters | Status |
+|------|----------|----------------|--------|
+| **P0** | Technical Debt Cleanup | Essential for scalability | ✅ COMPLETE |
+| **P1** | Push Notifications (FCM) | Real-time engagement | ✅ COMPLETE |
+| **P2** | Global Search | Find people and info fast | ✅ COMPLETE |
+| **P3** | Pinned Messages | Keep important info visible | ✅ COMPLETE |
+| **P4** | Message Threads | Organize deep conversations | ✅ COMPLETE |
+| **P5** | Polls & Surveys | Collaborative decision making | ✅ COMPLETE |
+| **P6** | **Shared Calendar / Events** | Coordinate meetings & events | **NEXT UP** |
+| **P7** | **Task Management** | Project & personal task tracking | **PLANNED** |
+| **P8** | Message Recovery Workflow | Restore cleared chats via admin | 🏗️ IN PROGRESS |
+| **P9** | Audio/Video Calls (WebRTC) | High-bandwidth communication | ⏸️ PAUSED |
 
 ## 4️⃣ Suggested Next Steps
 1. **Sprint 1 – Technical Debt** (✅ **COMPLETED**)
-   - Break out `firebase.ts` into dedicated service modules and update imports.
-   - Scope the feed to `organizations/{orgId}/posts`.
-   - Replace mock data in `YourFeed.tsx` with a real Firestore listener.
-   - Remove the auto‑Bluetooth call or gate it behind a user action.
-   - Optimize `getUsersByIds` with batched queries.
-   - Wire notification switches and security features in `UserProfile.tsx`.
 2. **Sprint 2 – Core UX Boost** (✅ **COMPLETED**)
-   - Implement Message Threads (UI refined, parent message simplified).
-   - Enhance Pinned Messages (Persistent sidebar with auto-scroll & highlight).
-   - Implement Global Search (✅ **COMPLETED**).
-   - Integrate Push Notifications via FCM (✅ **COMPLETED**).
-3. **Sprint 3 – Advanced Features** (🚀 **CURRENT**)
-   - Implement Polls & Surveys (✅ **COMPLETED**).
-   - Implement Shared Calendar / Events (NEXT UP).
-   - Implement Task Management (PLANNED).
-   - *Note: Audio/Video Call integration (WebRTC) and PWA support are currently paused.*
+3. **Sprint 3 – Advanced Messaging** (✅ **COMPLETED**)
+   - Implement Polls & Surveys with live results.
+   - Refine Clear Chat logic with 6-month data retention (soft-delete).
+   - Implement non-overlapping Sticky Date Separators in all chat views.
+4. **Sprint 4 – Coordination & Productivity** (🚀 **CURRENT**)
+   - **Shared Calendar**: Organization-wide and group-specific events.
+   - **Task Management**: Integrated Kanban or list-based tasks in groups.
+   - **Message Recovery**: Finalize the admin approval workflow for chat restoration.
 
-> **Bottom line:** With Polls and Surveys successfully integrated with a premium UI and live results, the application provides a highly polished core chat experience. The focus now shifts toward planning and coordination features, starting with the Shared Calendar.
+> **Bottom line:** With the chat experience now fully polished—including threads, polls, pins, and robust clearing/grouping—the platform is ready to expand into team coordination with the Shared Calendar and Task Management systems.
 
 ---
-*Generated on 2026‑05‑08*
+*Generated on 2026‑05‑09*

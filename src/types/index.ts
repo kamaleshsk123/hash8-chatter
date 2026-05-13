@@ -117,3 +117,17 @@ export interface ChatState {
   typingUsers: TypingStatus[];
   isLoading: boolean;
 }
+
+export interface CalendarEvent {
+  id: string;
+  orgId: string;
+  groupId?: string; // Optional for org-wide events
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+  location?: string;
+  createdBy: string;
+  createdAt: Date;
+  type: 'org' | 'group';
+}

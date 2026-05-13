@@ -15,7 +15,7 @@ import {
   Shield,
   User as UserIcon,
 } from "lucide-react";
-import { Building2, LogIn } from "lucide-react";
+import { Building2, LogIn, Calendar as CalendarIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -67,6 +67,7 @@ interface ChatSidebarProps {
   view: "chat" | "feed" | "your-feed" | "direct_message";
   onOrganizationSettingsClick: (org: any) => void;
   onOrganizationUpdate?: (updatedOrg: any) => void;
+  onCalendarClick?: () => void;
   refreshOrganizationsRef?: React.MutableRefObject<() => void>;
   onGroupSelect?: (group: any, org: any) => void;
   selectedGroupId?: string;
@@ -88,6 +89,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onOrganizationUpdate,
   refreshOrganizationsRef,
   onGroupSelect,
+  onCalendarClick,
   selectedGroupId,
   urlOrgId,
 }) => {
@@ -278,7 +280,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   // On orgs or chats load, select first org or chat if nothing selected
   useEffect(() => {
-    if (view === "feed" || view === "your-feed") return;
+    if (view === "feed" || view === "your-feed" || view === "calendar") return;
     if (!orgs || orgs.length === 0) {
       if (selectedSidebarItem) setSelectedSidebarItem(null);
       return;
@@ -486,6 +488,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           }}
           onOrganizationUpdate={handleOrganizationUpdate}
           onGroupSelect={onGroupSelect}
+          onCalendarClick={onCalendarClick}
           onDirectMessageStart={(conversationId, otherUser) => {
             // Navigate to direct message
             if (onGroupSelect) {
@@ -689,7 +692,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       )}
       {/* Feed button for default sidebar (no org selected) */}
       {selectedSidebarItem?.type !== "org" && (
-        <div className="p-4 border-t border-border flex justify-center z-20">
+        <div className="p-4 border-t border-border flex flex-col gap-2 z-20">
+          <Button
+            className="w-full font-semibold text-base"
+            variant="outline"
+            onClick={() => {
+              if (onCalendarClick) onCalendarClick();
+            }}>
+            <CalendarIcon className="w-4 h-4 mr-2" />
+            Calendar
+          </Button>
           <Button
             className="w-full font-semibold text-base"
             variant="default"
