@@ -46,7 +46,7 @@ interface OrganizationSidebarProps {
   onOrganizationUpdate?: (updatedOrg: any) => void; // Callback for organization updates
   onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
   onDirectMessageStart?: (conversationId: string, otherUser: any) => void; // Callback when starting a direct message
-  onCalendarClick?: () => void; // Callback to navigate to Calendar page
+  onCalendarClick?: (orgId?: string | null) => void; // Callback to navigate to Calendar page
   selectedGroupId?: string; // Currently selected group ID
   selectedConversationId?: string; // Currently selected conversation ID for direct messages
   // Add more props as needed for real group/member data
@@ -518,7 +518,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
           variant="outline"
           size="icon"
           className="h-10 w-10 shrink-0"
-          onClick={onCalendarClick}
+          onClick={() => onCalendarClick && onCalendarClick(org.id)}
           title="Calendar"
         >
           <CalendarIcon className="w-5 h-5" />

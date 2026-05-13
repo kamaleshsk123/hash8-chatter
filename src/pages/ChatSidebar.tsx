@@ -67,7 +67,7 @@ interface ChatSidebarProps {
   view: "chat" | "feed" | "your-feed" | "direct_message";
   onOrganizationSettingsClick: (org: any) => void;
   onOrganizationUpdate?: (updatedOrg: any) => void;
-  onCalendarClick?: () => void;
+  onCalendarClick?: (orgId?: string | null) => void;
   refreshOrganizationsRef?: React.MutableRefObject<() => void>;
   onGroupSelect?: (group: any, org: any) => void;
   selectedGroupId?: string;
@@ -692,24 +692,26 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       )}
       {/* Feed button for default sidebar (no org selected) */}
       {selectedSidebarItem?.type !== "org" && (
-        <div className="p-4 border-t border-border flex flex-col gap-2 z-20">
+        <div className="p-4 border-t border-border flex items-center gap-2 z-20">
           <Button
-            className="w-full font-semibold text-base"
-            variant="outline"
-            onClick={() => {
-              if (onCalendarClick) onCalendarClick();
-            }}>
-            <CalendarIcon className="w-4 h-4 mr-2" />
-            Calendar
-          </Button>
-          <Button
-            className="w-full font-semibold text-base"
+            className="flex-1 font-semibold text-base"
             variant="default"
             onClick={() => {
               setSelectedSidebarItem(null); // Clear organization selection
               onFeedClick();
             }}>
             Feed
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 shrink-0"
+            onClick={() => {
+              if (onCalendarClick) onCalendarClick(null);
+            }}
+            title="Calendar"
+          >
+            <CalendarIcon className="w-5 h-5" />
           </Button>
         </div>
       )}

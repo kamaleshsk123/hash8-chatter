@@ -866,9 +866,14 @@ const Chat = () => {
                 setShowOrganizationSettings(true);
               }}
               onOrganizationUpdate={handleOrganizationUpdate}
-              onCalendarClick={() => {
+              onCalendarClick={(orgId?: string) => {
                 setView("calendar");
-                updateURL("calendar", selectedOrg?.id, selectedGroup?.id);
+                if (orgId === null || orgId === undefined) {
+                  setSelectedOrg(null);
+                  updateURL("calendar");
+                } else {
+                  updateURL("calendar", orgId, selectedGroup?.id);
+                }
                 if (isMobile) setSidebarOpen(false);
               }}
               refreshOrganizationsRef={refreshOrganizationsRef}
@@ -946,6 +951,7 @@ const Chat = () => {
           <CalendarView 
             orgId={selectedOrg?.id} 
             groupId={selectedGroup?.id} 
+            userRole={selectedOrg?.userRole}
           />
         </div>
       ) : (

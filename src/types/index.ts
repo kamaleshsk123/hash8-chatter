@@ -120,7 +120,7 @@ export interface ChatState {
 
 export interface CalendarEvent {
   id: string;
-  orgId: string;
+  orgId?: string;
   groupId?: string; // Optional for org-wide events
   title: string;
   description: string;
@@ -129,6 +129,7 @@ export interface CalendarEvent {
   location?: string;
   createdBy: string;
   createdAt: Date;
-  type: 'org' | 'group';
+  type: 'org' | 'group' | 'personal';
   labelId?: string;
+  participantIds?: string[];
 }

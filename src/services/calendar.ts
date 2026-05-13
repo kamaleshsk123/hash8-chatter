@@ -9,7 +9,8 @@ import {
   orderBy, 
   serverTimestamp, 
   where,
-  Timestamp
+  Timestamp,
+  collectionGroup
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { CalendarEvent } from '@/types';
@@ -28,19 +29,42 @@ export const createEvent = async (
     startDate: Timestamp.fromDate(new Date(eventData.startDate)),
     endDate: Timestamp.fromDate(new Date(eventData.endDate)),
     createdAt: serverTimestamp(),
-    type: groupId ? 'group' : 'org'
+    type: groupId ? 'group' : (orgId ? 'org' : 'personal')
+  });
+};
+
+export const createGlobalEvent = async (
+  userId: string,
+  eventData: Omit<CalendarEvent, 'id' | 'createdAt'>
+) => {
+  return await addDoc(collection(db, `users/${userId}/events`), {
+    ...eventData,
+    startDate: Timestamp.fromDate(new Date(eventData.startDate)),
+    endDate: Timestamp.fromDate(new Date(eventData.endDate)),
+    createdAt: serverTimestamp(),
+    type: 'personal',
+    creatorId: userId,
+    participantIds: eventData.participantIds || []
   });
 };
 
 export const updateEvent = async (
-  orgId: string, 
+  orgId: string | undefined, 
   groupId: string | undefined, 
   eventId: string, 
-  eventData: Partial<CalendarEvent>
+  eventData: Partial<CalendarEvent>,
+  userId?: string
 ) => {
-  const docPath = groupId 
-    ? `organizations/${orgId}/groups/${groupId}/events/${eventId}` 
-    : `organizations/${orgId}/events/${eventId}`;
+  let docPath;
+  if (orgId) {
+    docPath = groupId 
+      ? `organizations/${orgId}/groups/${groupId}/events/${eventId}` 
+      : `organizations/${orgId}/events/${eventId}`;
+  } else if (userId) {
+    docPath = `users/${userId}/events/${eventId}`;
+  } else {
+    throw new Error("Missing context for updateEvent");
+  }
     
   const updates: any = { ...eventData };
   if (eventData.startDate) updates.startDate = Timestamp.fromDate(new Date(eventData.startDate));
@@ -53,13 +77,21 @@ export const updateEvent = async (
 };
 
 export const deleteEvent = async (
-  orgId: string, 
+  orgId: string | undefined, 
   groupId: string | undefined, 
-  eventId: string
+  eventId: string,
+  userId?: string
 ) => {
-  const docPath = groupId 
-    ? `organizations/${orgId}/groups/${groupId}/events/${eventId}` 
-    : `organizations/${orgId}/events/${eventId}`;
+  let docPath;
+  if (orgId) {
+    docPath = groupId 
+      ? `organizations/${orgId}/groups/${groupId}/events/${eventId}` 
+      : `organizations/${orgId}/events/${eventId}`;
+  } else if (userId) {
+    docPath = `users/${userId}/events/${eventId}`;
+  } else {
+    throw new Error("Missing context for deleteEvent");
+  }
     
   return await deleteDoc(doc(db, docPath));
 };
@@ -105,4 +137,77 @@ export const subscribeToGroupEvents = (
     } as CalendarEvent));
     callback(events);
   });
+};
+
+export const subscribeToGlobalEvents = (
+  userId: string,
+  callback: (events: CalendarEvent[]) => void
+) => {
+  // Query all events where the user is a participant
+  const qParticipants = query(
+    collectionGroup(db, 'events'),
+    where('participantIds', 'array-contains', userId)
+  );
+
+  // Query all events created by the user (useful for admins)
+  const qCreated = query(
+    collectionGroup(db, 'events'),
+    where('createdBy', '==', userId)
+  );
+
+  // Also query user's personal events
+  const qPersonal = query(
+    collection(db, `users/${userId}/events`),
+    orderBy('startDate', 'asc')
+  );
+
+  let participantEvents: CalendarEvent[] = [];
+  let createdEvents: CalendarEvent[] = [];
+  let personalEvents: CalendarEvent[] = [];
+
+  const update = () => {
+    // Combine and remove duplicates by ID
+    const combined = [...participantEvents, ...createdEvents, ...personalEvents];
+    const unique = Array.from(new Map(combined.map(e => [e.id, e])).values());
+    callback(unique.sort((a, b) => a.startDate.getTime() - b.startDate.getTime()));
+  };
+
+  const unsubParticipants = onSnapshot(qParticipants, (snapshot) => {
+    participantEvents = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      startDate: (doc.data().startDate as Timestamp).toDate(),
+      endDate: (doc.data().endDate as Timestamp).toDate(),
+      createdAt: (doc.data().createdAt as Timestamp)?.toDate(),
+    } as CalendarEvent));
+    update();
+  });
+
+  const unsubCreated = onSnapshot(qCreated, (snapshot) => {
+    createdEvents = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      startDate: (doc.data().startDate as Timestamp).toDate(),
+      endDate: (doc.data().endDate as Timestamp).toDate(),
+      createdAt: (doc.data().createdAt as Timestamp)?.toDate(),
+    } as CalendarEvent));
+    update();
+  });
+
+  const unsubPersonal = onSnapshot(qPersonal, (snapshot) => {
+    personalEvents = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      startDate: (doc.data().startDate as Timestamp).toDate(),
+      endDate: (doc.data().endDate as Timestamp).toDate(),
+      createdAt: (doc.data().createdAt as Timestamp)?.toDate(),
+    } as CalendarEvent));
+    update();
+  });
+
+  return () => {
+    unsubParticipants();
+    unsubCreated();
+    unsubPersonal();
+  };
 };
