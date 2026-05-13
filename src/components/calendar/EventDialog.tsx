@@ -8,6 +8,8 @@ import { CalendarEvent } from '@/types';
 import { createEvent, updateEvent } from '@/services/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { EVENT_LABELS, DEFAULT_LABEL_ID } from './constants';
+import { cn } from '@/lib/utils';
 
 interface EventDialogProps {
   open: boolean;
@@ -35,6 +37,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [location, setLocation] = useState('');
+  const [labelId, setLabelId] = useState(DEFAULT_LABEL_ID);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -45,6 +48,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       setStartDate(format(eventToEdit.startDate, "yyyy-MM-dd'T'HH:mm"));
       setEndDate(format(eventToEdit.endDate, "yyyy-MM-dd'T'HH:mm"));
       setLocation(eventToEdit.location || '');
+      setLabelId(eventToEdit.labelId || DEFAULT_LABEL_ID);
     } else if (selectedDate) {
       const start = new Date(selectedDate);
       start.setHours(9, 0, 0, 0);
@@ -55,6 +59,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       setTitle('');
       setDescription('');
       setLocation('');
+      setLabelId(DEFAULT_LABEL_ID);
     }
   }, [eventToEdit, selectedDate, open]);
 
@@ -78,6 +83,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         location,
+        labelId,
         createdBy: userId,
       };
 
@@ -166,6 +172,27 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               onChange={(e) => setLocation(e.target.value)} 
               placeholder="Physical or Virtual location"
             />
+          </div>
+          <div className="space-y-3">
+            <Label>Event Label</Label>
+            <div className="flex flex-wrap gap-2">
+              {EVENT_LABELS.map((label) => (
+                <button
+                  key={label.id}
+                  type="button"
+                  onClick={() => setLabelId(label.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+                    labelId === label.id 
+                      ? `${label.bg} ${label.text} ${label.border} shadow-sm ring-2 ring-primary/20`
+                      : "bg-background border-border text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <div className={cn("w-2 h-2 rounded-full", labelId === label.id ? "bg-white" : label.indicator)} />
+                  {label.name}
+                </button>
+              ))}
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

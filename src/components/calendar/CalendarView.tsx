@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CalendarEvent } from '@/types';
 import { subscribeToOrgEvents, subscribeToGroupEvents, deleteEvent } from '@/services/calendar';
+import { getLabelColor } from './constants';
 import { EventDialog } from './EventDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -28,22 +29,6 @@ interface CalendarViewProps {
   groupId?: string;
 }
 
-/* ── Event color palette ──────────────────────────────── */
-const EVENT_COLORS = [
-  { bg: 'bg-blue-500/90', text: 'text-white', border: 'border-blue-600' },
-  { bg: 'bg-red-400/90', text: 'text-white', border: 'border-red-500' },
-  { bg: 'bg-emerald-500/90', text: 'text-white', border: 'border-emerald-600' },
-  { bg: 'bg-purple-500/90', text: 'text-white', border: 'border-purple-600' },
-  { bg: 'bg-amber-500/90', text: 'text-white', border: 'border-amber-600' },
-  { bg: 'bg-cyan-500/90', text: 'text-white', border: 'border-cyan-600' },
-  { bg: 'bg-pink-500/90', text: 'text-white', border: 'border-pink-600' },
-];
-
-function getEventColor(id: string) {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  return EVENT_COLORS[Math.abs(hash) % EVENT_COLORS.length];
-}
 
 /* ── Mini Month Calendar ──────────────────────────────── */
 const MiniCalendar = React.memo(({
@@ -265,7 +250,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ orgId, groupId }) =>
                 .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
                 .slice(0, 5)
                 .map(ev => {
-                  const c = getEventColor(ev.id);
+                  const c = getLabelColor(ev.labelId);
                   return (
                     <button key={ev.id} onClick={() => handleEditEvent(ev.id)}
                       className="w-full text-left p-2 rounded-lg hover:bg-muted/50 transition-colors group">
@@ -347,7 +332,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ orgId, groupId }) =>
                       const top = Math.max(0, getTimePosition(ev.startDate));
                       const bottom = getTimePosition(ev.endDate);
                       const height = Math.max(24, bottom - top);
-                      const c = getEventColor(ev.id);
+                      const c = getLabelColor(ev.labelId);
                       return (
                         <div key={ev.id}
                           className={cn(
@@ -391,9 +376,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ orgId, groupId }) =>
             </div>
           </SheetHeader>
           <div className="space-y-4">
-            {selectedDateEvents.length > 0 ? selectedDateEvents.map(event => (
-              <Card key={event.id} className="group relative overflow-hidden border-border/40 bg-background hover:border-primary/25 transition-colors rounded-2xl shadow-md shadow-black/[0.03]">
-                <div className={cn("absolute top-0 left-0 w-1.5 h-full", event.type === 'org' ? "bg-blue-500" : "bg-primary")} />
+            {selectedDateEvents.length > 0 ? selectedDateEvents.map(event => {
+              const c = getLabelColor(event.labelId);
+              return (
+                <Card key={event.id} className="group relative overflow-hidden border-border/40 bg-background hover:border-primary/25 transition-colors rounded-2xl shadow-md shadow-black/[0.03]">
+                  <div className={cn("absolute top-0 left-0 w-1.5 h-full", c.indicator)} />
                 <CardHeader className="pb-2 space-y-0">
                   <div className="flex justify-between items-start">
                     <div className="space-y-1 min-w-0 flex-1 text-left">
@@ -423,8 +410,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ orgId, groupId }) =>
                     </div>
                   )}
                 </CardContent>
-              </Card>
-            )) : (
+                </Card>
+              );
+            }) : (
               <div className="py-16 flex flex-col items-center justify-center border-2 border-dashed border-border/40 rounded-3xl bg-muted/5">
                 <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
                   <CalendarIcon className="h-7 w-7 text-muted-foreground/25" />

@@ -130,4 +130,5 @@ export interface CalendarEvent {
   createdBy: string;
   createdAt: Date;
   type: 'org' | 'group';
+  labelId?: string;
 }
