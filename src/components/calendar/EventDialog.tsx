@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { 
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { CalendarEvent } from '@/types';
-import { createEvent, updateEvent } from '@/services/calendar';
+import { createEvent, updateEvent, deleteEvent } from '@/services/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { Trash2 } from 'lucide-react';
 import { EVENT_LABELS, DEFAULT_LABEL_ID } from './constants';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +44,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   const [location, setLocation] = useState('');
   const [labelId, setLabelId] = useState(DEFAULT_LABEL_ID);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -113,6 +120,33 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!eventToEdit) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!eventToEdit) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteEvent(orgId, groupId, eventToEdit.id);
+      toast({ title: "Event deleted", description: "The event has been successfully removed." });
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the event. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -194,14 +228,50 @@ export const EventDialog: React.FC<EventDialogProps> = ({
               ))}
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : (eventToEdit ? 'Update Event' : 'Create Event')}
-            </Button>
+          <DialogFooter className="flex-row justify-between items-center gap-2">
+            <div>
+              {eventToEdit && (
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit" disabled={isSubmitting || isDeleting}>
+                {isSubmitting ? 'Saving...' : (eventToEdit ? 'Update Event' : 'Create Event')}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="rounded-3xl border-border/40">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold tracking-tight">Delete Event</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground font-medium">
+              Are you sure you want to delete "{title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl border-border/40 font-bold">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Event'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
