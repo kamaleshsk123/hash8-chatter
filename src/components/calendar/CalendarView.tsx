@@ -181,7 +181,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ orgId, groupId, user
   const confirmDelete = async () => {
     if (!eventToDeleteId) return;
     try {
-      await deleteEvent(orgId, groupId, eventToDeleteId);
+      await deleteEvent(orgId, groupId, eventToDeleteId, user?.uid);
       toast({ title: "Event deleted", description: "The event has been removed." });
       setIsDeleteDialogOpen(false);
       setEventToDeleteId(null);

@@ -209,7 +209,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     setIsSubmitting(true);
     try {
       const eventData: any = {
-        orgId,
         title,
         description,
         startDate: new Date(startDate),
@@ -220,11 +219,16 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         createdBy: userId,
       };
 
-      if (groupId) {
-        eventData.groupId = groupId;
-        eventData.type = 'group';
+      if (orgId) {
+        eventData.orgId = orgId;
+        if (groupId) {
+          eventData.groupId = groupId;
+          eventData.type = 'group';
+        } else {
+          eventData.type = 'org';
+        }
       } else {
-        eventData.type = 'org';
+        eventData.type = 'personal';
       }
 
       if (orgId) {
@@ -290,7 +294,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
     }
   };
 
-  const canManage = userRole === 'admin' || userRole === 'moderator';
+  const canManage = !orgId || userRole === 'admin' || userRole === 'moderator' || (eventToEdit?.createdBy === userId);
 
   const filteredMembers = members.filter(m => 
     m.userId !== userId && // Exclude the current user (organizer)
@@ -307,7 +311,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl">
+      <DialogContent className={cn("p-0 overflow-hidden rounded-[2rem] border-none shadow-2xl transition-all", orgId ? "sm:max-w-4xl" : "sm:max-w-2xl")}>
         <DialogHeader className="px-8 pt-8 pb-4 bg-muted/20 border-b border-border/10">
           <DialogTitle className="text-2xl font-black tracking-tight">
             {eventToEdit ? (canManage ? 'Edit Event' : 'Event Details') : 'Create New Event'}
@@ -315,7 +319,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[90vh]">
           <div className="flex-1 overflow-y-auto p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className={cn("grid grid-cols-1 gap-10", orgId && "md:grid-cols-2")}>
               {/* Left Column: Event Details */}
               <div className="space-y-6">
                 <div className="space-y-4">
@@ -411,135 +415,137 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 </div>
               </div>
 
-              {/* Right Column: Participants */}
-              <div className="flex flex-col space-y-6">
-                <div className="space-y-4 flex flex-col h-full">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-primary/50">Participants</h3>
-                    <Badge variant="outline" className="rounded-full bg-primary/5 text-primary border-primary/10 font-black">
-                      {participantIds.length} Selected
-                    </Badge>
-                  </div>
-                  
-                  {/* Selected Participants Chips */}
-                  <div className="min-h-[60px] max-h-[120px] overflow-y-auto flex flex-wrap gap-2 p-3 bg-primary/[0.03] rounded-3xl border border-primary/5">
-                    {participantIds.length > 0 ? (
-                      <>
-                        {participantIds.slice(0, 3).map(id => {
-                          const member = members.find(m => m.userId === id);
-                          if (!member) return null;
-                          return (
-                            <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-2 bg-background border-border/40 hover:bg-background rounded-full shadow-sm">
-                              <Avatar className="w-6 h-6">
-                                <AvatarImage src={member.avatar} />
-                                <AvatarFallback className="text-[10px] font-bold">{member.displayName?.charAt(0) || member.email?.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-[11px] font-bold text-foreground">{member.displayName || member.email}</span>
-                              {canManage && (
-                                <button 
-                                  type="button"
-                                  onClick={(e) => { e.preventDefault(); toggleParticipant(id); }}
-                                  className="p-1 hover:bg-muted rounded-full transition-colors group"
-                                >
-                                  <X className="w-3 h-3 text-muted-foreground group-hover:text-destructive" />
-                                </button>
-                              )}
-                            </Badge>
-                          );
-                        })}
-                        {participantIds.length > 3 && (
-                          <Badge variant="secondary" className="px-3 py-1 rounded-full bg-primary/5 border-primary/10 text-[10px] font-black text-primary">
-                            +{participantIds.length - 3} more
-                          </Badge>
-                        )}
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center w-full h-full opacity-30 italic text-xs">
-                        No participants added
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Search and Member List */}
-                  <div className="flex-1 flex flex-col space-y-3 min-h-0">
-                    {canManage && (
-                      <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input 
-                          placeholder="Search members to invite..." 
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-11 h-12 bg-muted/30 border-none rounded-2xl focus-visible:ring-primary/20 text-sm"
-                          type="text"
-                          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                        />
-                      </div>
-                    )}
-
-                    <ScrollArea className={cn("flex-1 border border-border/10 rounded-3xl bg-muted/10 overflow-hidden", !canManage && "h-[300px]")}>
-                      <div className="p-3 space-y-1.5">
-                        {membersLoading ? (
-                          <div className="flex flex-col items-center justify-center py-10 space-y-3">
-                            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Finding Team...</p>
-                          </div>
-                        ) : filteredMembers.length === 0 && canManage ? (
-                          <div className="py-10 text-center flex flex-col items-center">
-                            <Users className="w-8 h-8 text-muted-foreground/20 mb-2" />
-                            <p className="text-[11px] text-muted-foreground font-medium italic">No members found</p>
-                          </div>
-                        ) : (
-                          // Only show selected members for non-admins, or all for admins
-                          (canManage ? filteredMembers : members.filter(m => participantIds.includes(m.userId))).map(member => (
-                            <button
-                              key={member.userId}
-                              type="button"
-                              onClick={() => canManage && toggleParticipant(member.userId)}
-                              disabled={!canManage}
-                              className={cn(
-                                "w-full flex items-center gap-4 p-3 rounded-2xl transition-all duration-300 text-left group",
-                                participantIds.includes(member.userId) 
-                                  ? "bg-primary/10 ring-1 ring-primary/30 shadow-inner" 
-                                  : "hover:bg-background hover:shadow-md hover:scale-[1.02]",
-                                !canManage && "cursor-default hover:scale-100 shadow-none"
-                              )}
-                            >
-                              <div className="relative">
-                                <Avatar className="w-10 h-10 ring-2 ring-background shadow-sm">
+              {/* Right Column: Participants - Only shown in Organization/Group context */}
+              {orgId && (
+                <div className="flex flex-col space-y-6">
+                  <div className="space-y-4 flex flex-col h-full">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-primary/50">Participants</h3>
+                      <Badge variant="outline" className="rounded-full bg-primary/5 text-primary border-primary/10 font-black">
+                        {participantIds.length} Selected
+                      </Badge>
+                    </div>
+                    
+                    {/* Selected Participants Chips */}
+                    <div className="min-h-[60px] max-h-[120px] overflow-y-auto flex flex-wrap gap-2 p-3 bg-primary/[0.03] rounded-3xl border border-primary/5">
+                      {participantIds.length > 0 ? (
+                        <>
+                          {participantIds.slice(0, 3).map(id => {
+                            const member = members.find(m => m.userId === id);
+                            if (!member) return null;
+                            return (
+                              <Badge key={id} variant="secondary" className="pl-1 pr-2 py-1 gap-2 bg-background border-border/40 hover:bg-background rounded-full shadow-sm">
+                                <Avatar className="w-6 h-6">
                                   <AvatarImage src={member.avatar} />
-                                  <AvatarFallback className="bg-muted text-foreground text-sm font-bold">
-                                    {member.displayName?.charAt(0) || member.email?.charAt(0)}
-                                  </AvatarFallback>
+                                  <AvatarFallback className="text-[10px] font-bold">{member.displayName?.charAt(0) || member.email?.charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                {participantIds.includes(member.userId) && (
-                                  <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1 border-2 border-background shadow-xl scale-110">
-                                    <Check className="w-2.5 h-2.5 font-bold" />
-                                  </div>
+                                <span className="text-[11px] font-bold text-foreground">{member.displayName || member.email}</span>
+                                {canManage && (
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); toggleParticipant(id); }}
+                                    className="p-1 hover:bg-muted rounded-full transition-colors group"
+                                  >
+                                    <X className="w-3 h-3 text-muted-foreground group-hover:text-destructive" />
+                                  </button>
                                 )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm font-black text-foreground truncate group-hover:text-primary transition-colors">
-                                    {member.displayName || member.email}
-                                  </p>
-                                  {member.role && (
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-md bg-muted/50 border-border/40 text-muted-foreground uppercase font-bold tracking-tighter">
-                                      {member.role}
-                                    </Badge>
+                              </Badge>
+                            );
+                          })}
+                          {participantIds.length > 3 && (
+                            <Badge variant="secondary" className="px-3 py-1 rounded-full bg-primary/5 border-primary/10 text-[10px] font-black text-primary">
+                              +{participantIds.length - 3} more
+                            </Badge>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center w-full h-full opacity-30 italic text-xs">
+                          No participants added
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Search and Member List */}
+                    <div className="flex-1 flex flex-col space-y-3 min-h-0">
+                      {canManage && (
+                        <div className="relative">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input 
+                            placeholder="Search members to invite..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-11 h-12 bg-muted/30 border-none rounded-2xl focus-visible:ring-primary/20 text-sm"
+                            type="text"
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                          />
+                        </div>
+                      )}
+
+                      <ScrollArea className={cn("flex-1 border border-border/10 rounded-3xl bg-muted/10 overflow-hidden", !canManage && "h-[300px]")}>
+                        <div className="p-3 space-y-1.5">
+                          {membersLoading ? (
+                            <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                              <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Finding Team...</p>
+                            </div>
+                          ) : filteredMembers.length === 0 && canManage ? (
+                            <div className="py-10 text-center flex flex-col items-center">
+                              <Users className="w-8 h-8 text-muted-foreground/20 mb-2" />
+                              <p className="text-[11px] text-muted-foreground font-medium italic">No members found</p>
+                            </div>
+                          ) : (
+                            // Only show selected members for non-admins, or all for admins
+                            (canManage ? filteredMembers : members.filter(m => participantIds.includes(m.userId))).map(member => (
+                              <button
+                                key={member.userId}
+                                type="button"
+                                onClick={() => canManage && toggleParticipant(member.userId)}
+                                disabled={!canManage}
+                                className={cn(
+                                  "w-full flex items-center gap-4 p-3 rounded-2xl transition-all duration-300 text-left group",
+                                  participantIds.includes(member.userId) 
+                                    ? "bg-primary/10 ring-1 ring-primary/30 shadow-inner" 
+                                    : "hover:bg-background hover:shadow-md hover:scale-[1.02]",
+                                  !canManage && "cursor-default hover:scale-100 shadow-none"
+                                )}
+                              >
+                                <div className="relative">
+                                  <Avatar className="w-10 h-10 ring-2 ring-background shadow-sm">
+                                    <AvatarImage src={member.avatar} />
+                                    <AvatarFallback className="bg-muted text-foreground text-sm font-bold">
+                                      {member.displayName?.charAt(0) || member.email?.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  {participantIds.includes(member.userId) && (
+                                    <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1 border-2 border-background shadow-xl scale-110">
+                                      <Check className="w-2.5 h-2.5 font-bold" />
+                                    </div>
                                   )}
                                 </div>
-                                <p className="text-[10px] font-medium text-muted-foreground truncate uppercase tracking-tight">
-                                  {member.email}
-                                </p>
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-black text-foreground truncate group-hover:text-primary transition-colors">
+                                      {member.displayName || member.email}
+                                    </p>
+                                    {member.role && (
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-md bg-muted/50 border-border/40 text-muted-foreground uppercase font-bold tracking-tighter">
+                                        {member.role}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] font-medium text-muted-foreground truncate uppercase tracking-tight">
+                                    {member.email}
+                                  </p>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

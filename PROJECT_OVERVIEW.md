@@ -14,7 +14,9 @@
 | **Dark Mode** | ✅ Working | Theme toggle |
 | **Voice & File Sharing** | ✅ Working | Recorder, Cloudinary uploader |
 | **Offline Cache** | ⚠️ Partial | IndexedDB persistence, custom sync service |
-| **Bluetooth P2P** | ❌ Non‑functional | Web Bluetooth API errors |
+| **Bluetooth P2P** | ❌ Non‑functional | Web Bluetooth API advertising limitations |
+| **Shared Calendar** | ✅ Working | Org-wide, group, and personal events |
+| **Global Calendar** | ✅ Working | Aggregated participant view across organizations |
 
 ## 2️⃣ Critical Bugs / Technical Debt (Fix First)
 | # | Issue | Why It Blocks Progress | Status |
@@ -38,10 +40,10 @@
 | **P3** | Pinned Messages | Keep important info visible | ✅ COMPLETE |
 | **P4** | Message Threads | Organize deep conversations | ✅ COMPLETE |
 | **P5** | Polls & Surveys | Collaborative decision making | ✅ COMPLETE |
-| **P6** | **Shared Calendar / Events** | Coordinate meetings & events | **NEXT UP** |
-| **P7** | **Task Management** | Project & personal task tracking | **PLANNED** |
-| **P8** | Message Recovery Workflow | Restore cleared chats via admin | 🏗️ IN PROGRESS |
-| **P9** | Audio/Video Calls (WebRTC) | High-bandwidth communication | ⏸️ PAUSED |
+| **P6** | **Shared Calendar / Events** | Coordinate meetings & events | ✅ COMPLETE |
+| **P7** | **Task Management** | Project & personal task tracking | **NEXT UP** |
+| **P8** | **Message Recovery Workflow** | Restore cleared chats via admin | ✅ COMPLETE |
+| **P9** | **Audio/Video Calls (WebRTC)** | High-bandwidth communication | 🏗️ IN PROGRESS |
 
 ## 4️⃣ Suggested Next Steps
 1. **Sprint 1 – Technical Debt** (✅ **COMPLETED**)
@@ -50,12 +52,16 @@
    - Implement Polls & Surveys with live results.
    - Refine Clear Chat logic with 6-month data retention (soft-delete).
    - Implement non-overlapping Sticky Date Separators in all chat views.
-4. **Sprint 4 – Coordination & Productivity** (🚀 **CURRENT**)
+4. **Sprint 4 – Coordination & Productivity** (✅ **COMPLETED**)
    - **Shared Calendar**: Organization-wide and group-specific events.
-   - **Task Management**: Integrated Kanban or list-based tasks in groups.
-   - **Message Recovery**: Finalize the admin approval workflow for chat restoration.
+   - **Global Calendar**: Integrated view of all personal and organization events.
+   - **Message Recovery**: Finalized the admin approval workflow for chat restoration.
+5. **Sprint 5 – Advanced Workflow & Mobility** (🚀 **CURRENT**)
+   - **Task Management**: Integrated Kanban boards and personal TODOs.
+   - **PWA Support**: Full installable experience with optimized offline assets.
+   - **WebRTC Calling**: Implement 1-on-1 audio/video calls within DMs.
 
 > **Bottom line:** With the chat experience now fully polished—including threads, polls, pins, and robust clearing/grouping—the platform is ready to expand into team coordination with the Shared Calendar and Task Management systems.
 
 ---
-*Generated on 2026‑05‑09*
+*Generated on 2026‑05‑14*
