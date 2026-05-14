@@ -265,6 +265,8 @@ export const subscribeToGroupMessages = (
         isPinned: data.isPinned || false,
         pinnedBy: data.pinnedBy,
         pinnedAt: data.pinnedAt?.toDate(),
+        deleted: data.deleted || false,
+        originalText: data.originalText,
         hasPendingWrites: doc.metadata.hasPendingWrites, // Added for offline support
         ...(data.type === 'poll' && data.pollData ? { pollData: data.pollData } : {})
       };
@@ -560,10 +562,17 @@ export const deleteGroupMessage = async (
 ) => {
   try {
     const messageRef = doc(db, `organizations/${orgId}/groups/${groupId}/messages`, messageId);
-    await updateDoc(messageRef, {
-      deleted: true,
-      deletedAt: serverTimestamp()
-    });
+    const messageDoc = await getDoc(messageRef);
+    
+    if (messageDoc.exists()) {
+      const messageData = messageDoc.data();
+      await updateDoc(messageRef, {
+        originalText: messageData.text || '',
+        text: 'This message has been deleted',
+        deleted: true,
+        deletedAt: serverTimestamp()
+      });
+    }
   } catch (error) {
     console.error('Error deleting group message:', error);
     throw error;

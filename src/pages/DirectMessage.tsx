@@ -18,6 +18,7 @@ import {
   resetUnreadCount,
   subscribeToTypingIndicators,
   togglePinDirectMessage,
+  createRecoveryRequest,
   db
 } from "@/services/firebase";
 import { offlineCache } from "@/services/offlineCache";
@@ -85,6 +86,8 @@ interface Message {
   isPinned?: boolean;
   pinnedBy?: string;
   pinnedAt?: Date;
+  isCleared?: boolean;
+  clearedAt?: Date;
   parentMessageId?: string;
   replyCount?: number;
 }
@@ -130,7 +133,8 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
     if (!user) return;
 
     // Only proceed if there are messages to delete
-    const activeMessages = messages.filter((msg) => !msg.deleted);
+    // Only proceed if there are messages that haven't been cleared yet
+    const activeMessages = messages.filter((msg) => !msg.isCleared);
     if (activeMessages.length === 0) {
       toast({
         title: 'Chat is already empty',
@@ -172,6 +176,26 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
       });
     }
   }
+
+  const handleRequestRecovery = async () => {
+    if (!user) return;
+    
+    try {
+      await createRecoveryRequest(conversationId, user.uid, user.name || 'Unknown User');
+      toast({
+        title: 'Recovery request sent',
+        description: 'Your request has been sent to the administrator for approval.',
+      });
+    } catch (error) {
+      console.error('Error requesting recovery:', error);
+      toast({
+        title: 'Request failed',
+        description: 'Failed to send recovery request. Please try again later.',
+        variant: 'destructive',
+      });
+    }
+  };
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -883,6 +907,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         <DirectMessageHeader 
           otherUser={otherUser}
           onClearChat={clearChat}
+          onRequestRecovery={handleRequestRecovery}
           messages={messages}
           onTogglePinnedSidebar={() => setShowPinnedSidebar(!showPinnedSidebar)}
         />
@@ -933,7 +958,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
         )}
 
         <MessageList
-          messages={messages.filter(m => !m.parentMessageId)}
+          messages={messages.filter(m => !m.parentMessageId && !m.isCleared)}
           conversationId={conversationId}
           user={user}
           otherUser={otherUser}

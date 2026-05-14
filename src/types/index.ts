@@ -22,7 +22,7 @@ export interface User {
   fcmTokens?: string[];
 }
 
-export type UserRole = 'admin' | 'moderator' | 'member';
+export type UserRole = 'super_admin' | 'admin' | 'moderator' | 'member';
 
 export interface ModeratorPermissions {
   canManageMessages: boolean;
@@ -88,6 +88,8 @@ export interface Message {
   hasPendingWrites?: boolean; // Added for offline support
   parentMessageId?: string; // For threads
   replyCount?: number;      // Number of replies in the thread
+  isCleared?: boolean;
+  clearedAt?: Date;
 }
 
 export interface ReadReceipt {
@@ -114,4 +116,20 @@ export interface ChatState {
   messages: Message[];
   typingUsers: TypingStatus[];
   isLoading: boolean;
+}
+
+export interface CalendarEvent {
+  id: string;
+  orgId?: string;
+  groupId?: string; // Optional for org-wide events
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+  location?: string;
+  createdBy: string;
+  createdAt: Date;
+  type: 'org' | 'group' | 'personal';
+  labelId?: string;
+  participantIds?: string[];
 }

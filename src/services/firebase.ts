@@ -97,7 +97,10 @@ export {
   subscribeToTypingIndicators,
   subscribeToConversations,
   resetUnreadCount,
-  togglePinDirectMessage
+  togglePinDirectMessage,
+  createRecoveryRequest,
+  getRecoveryRequests,
+  handleRecoveryRequest
 } from './directMessages';
 
 // === File Storage ===
