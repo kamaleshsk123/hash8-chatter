@@ -9,6 +9,7 @@ import {
   Shield,
   User as UserIcon,
   Globe,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -45,6 +46,7 @@ interface OrganizationSidebarProps {
   onOrganizationUpdate?: (updatedOrg: any) => void; // Callback for organization updates
   onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
   onDirectMessageStart?: (conversationId: string, otherUser: any) => void; // Callback when starting a direct message
+  onCalendarClick?: (orgId?: string | null) => void; // Callback to navigate to Calendar page
   selectedGroupId?: string; // Currently selected group ID
   selectedConversationId?: string; // Currently selected conversation ID for direct messages
   // Add more props as needed for real group/member data
@@ -64,6 +66,7 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   onOrganizationUpdate,
   onGroupSelect,
   onDirectMessageStart,
+  onCalendarClick,
   selectedGroupId,
   selectedConversationId,
 }) => {
@@ -504,12 +507,21 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
         </Button>
       </div>
       {/* Feed button fixed at bottom for org view */}
-      <div className="sticky bottom-0 w-full bg-chat-sidebar p-4 border-t border-border flex justify-center z-20">
+      <div className="sticky bottom-0 w-full bg-chat-sidebar p-4 border-t border-border flex items-center gap-2 z-20">
         <Button
-          className="w-full font-semibold text-base"
+          className="flex-1 font-semibold text-base"
           variant="default"
           onClick={onFeedClick}>
           Feed
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 shrink-0"
+          onClick={() => onCalendarClick && onCalendarClick(org.id)}
+          title="Calendar"
+        >
+          <CalendarIcon className="w-5 h-5" />
         </Button>
       </div>
       

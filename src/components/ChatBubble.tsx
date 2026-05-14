@@ -94,8 +94,11 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             )}>
             {/* Show deleted message indicator */}
             {message.deleted ? (
-              <p className="text-sm italic text-muted-foreground">
-                This message was deleted by a moderator
+              <p className={cn(
+                "text-sm italic",
+                isOwnMessage ? "text-white/70" : "text-muted-foreground/80"
+              )}>
+                This message was deleted
               </p>
             ) : (
               <div className="flex flex-col gap-1">

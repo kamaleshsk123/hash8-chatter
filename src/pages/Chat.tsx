@@ -48,6 +48,7 @@ import {
   Edit2,
   MessageSquare,
   BarChart2,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { CreatePollDialog } from "@/components/CreatePollDialog";
 import { PollVotersSidebar } from "@/components/PollVotersSidebar";
@@ -87,6 +88,7 @@ import { GroupInfoSheet } from "./GroupInfoSheet";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ThreadView } from "@/components/ThreadView";
 import { PinnedMessagesSidebar } from "@/components/PinnedMessagesSidebar";
+import { CalendarView } from "@/components/calendar/CalendarView";
 
 // Mock data for development
 const mockGroups: Group[] = [
@@ -237,10 +239,10 @@ const Chat = () => {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Initialize view from URL parameters or default to "your-feed"
-  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message">(() => {
+  const [view, setView] = useState<"chat" | "feed" | "your-feed" | "direct_message" | "calendar">(() => {
     const urlView = searchParams.get('view');
-    if (urlView && ['chat', 'feed', 'your-feed', 'direct_message'].includes(urlView)) {
-      return urlView as "chat" | "feed" | "your-feed" | "direct_message";
+    if (urlView && ['chat', 'feed', 'your-feed', 'direct_message', 'calendar'].includes(urlView)) {
+      return urlView as "chat" | "feed" | "your-feed" | "direct_message" | "calendar";
     }
     return "your-feed";
   });
@@ -864,6 +866,16 @@ const Chat = () => {
                 setShowOrganizationSettings(true);
               }}
               onOrganizationUpdate={handleOrganizationUpdate}
+              onCalendarClick={(orgId?: string) => {
+                setView("calendar");
+                if (orgId === null || orgId === undefined) {
+                  setSelectedOrg(null);
+                  updateURL("calendar");
+                } else {
+                  updateURL("calendar", orgId, selectedGroup?.id);
+                }
+                if (isMobile) setSidebarOpen(false);
+              }}
               refreshOrganizationsRef={refreshOrganizationsRef}
               onGroupSelect={handleSelectGroup}
               selectedGroupId={showOrganizationSettings || view === "feed" || view === "your-feed" ? null : selectedGroup?.id}
@@ -929,10 +941,19 @@ const Chat = () => {
               } else {
                 setView("chat");
                 setSelectedGroup(null);
+                updateURL("chat");
               }
             }}
           />
         </ErrorBoundary>
+      ) : view === "calendar" ? (
+        <div className="flex-1 overflow-hidden">
+          <CalendarView 
+            orgId={selectedOrg?.id} 
+            groupId={selectedGroup?.id} 
+            userRole={selectedOrg?.userRole}
+          />
+        </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col min-h-0 bg-background border-r relative">
@@ -1070,6 +1091,17 @@ const Chat = () => {
                   </Button>
                     <Button 
                       variant="ghost" 
+                      size="icon"
+                      onClick={() => {
+                        setView("calendar");
+                        updateURL("calendar", selectedOrg?.id, selectedGroup?.id);
+                      }}
+                      title="Group Calendar"
+                    >
+                      <CalendarIcon className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
                       size="icon" 
                       onClick={() => {
                         // Trigger Cmd+K programmatically if needed, 
@@ -1192,31 +1224,55 @@ const Chat = () => {
                 ) : (
                   <>
                     <AnimatePresence initial={false}>
-                      {messages
-                        .filter(m => !m.parentMessageId) // Only show top-level messages
-                        .map((msg, index) => {
-                        const isConsecutive = index > 0 && messages[index - 1].senderId === msg.senderId;
-                        return (
-                          <div key={msg.id} id={`msg-${msg.id}`} className="rounded-2xl">
-                            <ChatBubble
-                              message={msg}
-                              isConsecutive={isConsecutive}
-                              currentUserRole={selectedOrg?.userRole}
-                              organizationId={selectedOrg?.id}
-                              groupId={selectedGroup?.id}
-                              onTogglePin={handleTogglePin}
-                              onEditMessage={(msg) => {
-                                setEditingMessageId(msg.id);
-                                setEditingText(msg.text);
-                                setNewMessage(msg.text);
-                              }}
-                              onMessageDeleted={() => {}}
-                              onReply={(msg) => setSelectedThreadMessage(msg)}
-                              onViewVoters={(msg) => setSelectedPollIdForVoters(msg.id)}
-                            />
+                      {(() => {
+                        const topLevelMessages = messages.filter(m => !m.parentMessageId);
+                        const groups: { date: string; msgs: Message[] }[] = [];
+                        
+                        topLevelMessages.forEach(msg => {
+                          const dateStr = formatChatDate(msg.timestamp);
+                          const lastGroup = groups[groups.length - 1];
+                          if (lastGroup && lastGroup.date === dateStr) {
+                            lastGroup.msgs.push(msg);
+                          } else {
+                            groups.push({ date: dateStr, msgs: [msg] });
+                          }
+                        });
+
+                        return groups.map((group) => (
+                          <div key={group.date} className="relative">
+                            <div className="flex justify-center my-6 sticky top-2 z-10">
+                              <div className="bg-muted/80 backdrop-blur-sm text-muted-foreground text-[11px] font-medium px-3 py-1 rounded-full shadow-sm border border-border/50">
+                                {group.date}
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              {group.msgs.map((msg, index) => {
+                                const isConsecutive = index > 0 && group.msgs[index - 1].senderId === msg.senderId;
+                                return (
+                                  <div key={msg.id} id={`msg-${msg.id}`} className="rounded-2xl">
+                                    <ChatBubble
+                                      message={msg}
+                                      isConsecutive={isConsecutive}
+                                      currentUserRole={selectedOrg?.userRole}
+                                      organizationId={selectedOrg?.id}
+                                      groupId={selectedGroup?.id}
+                                      onTogglePin={handleTogglePin}
+                                      onEditMessage={(msg) => {
+                                        setEditingMessageId(msg.id);
+                                        setEditingText(msg.text);
+                                        setNewMessage(msg.text);
+                                      }}
+                                      onMessageDeleted={() => {}}
+                                      onReply={(msg) => setSelectedThreadMessage(msg)}
+                                      onViewVoters={(msg) => setSelectedPollIdForVoters(msg.id)}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        );
-                      })}
+                        ));
+                      })()}
                     </AnimatePresence>
                     <TypingIndicator typingUsers={typingUsers} />
                   </>
