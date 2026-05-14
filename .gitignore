@@ -32,3 +32,4 @@ bun.lockb
 tsc_errors.log
 .claude/
 .qoder/
+.md
