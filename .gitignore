@@ -26,3 +26,12 @@ dist-ssr
 
 # YoYo AI version control directory
 .yoyo/
+
+# Unimportant generated or local tooling files
+bun.lockb
+tsc_errors.log
+.claude/
+.qoder/
+.md
+Hash8_Chatter_Documentation.html
+Hash8_Chatter_Presentation.html
