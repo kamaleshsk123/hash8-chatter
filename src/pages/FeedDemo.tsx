@@ -7,8 +7,6 @@ import {
   Menu,
   Eye,
   Send,
-  ArrowUp,
-  ArrowUpIcon,
   List,
   User,
   Plus,
@@ -63,7 +61,7 @@ interface Comment {
 const emojiList = ["👍", "❤️", "😂", "🎉"];
 
 const tabOrder = ["all", "my", "saved"];
-const tabLabels = {
+const tabLabels: Record<string, string> = {
   all: "All",
   my: "My Posts",
   saved: "Saved",

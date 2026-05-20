@@ -27,14 +27,7 @@ import {
   Sun,
   Moon,
   Monitor,
-  CreditCard,
-  BadgeCheck,
-  Loader2,
-  Bell,
-  Globe,
-  Clock,
   Lock,
-  Edit2
 } from "lucide-react";
 import { requestNotificationPermission } from "@/services/notifications";
 import { useAuth } from "@/context/AuthContext";
@@ -49,6 +42,7 @@ interface UserProfileProps {
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onClose }) => {
   const { user, refreshUser } = useAuth();
+  if (!user) return null;
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);

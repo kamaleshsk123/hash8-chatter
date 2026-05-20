@@ -2,17 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { ChatBubble } from "@/components/ChatBubble";
-import { formatChatDate, isSameDay } from "@/utils/dateUtils";
-import { formatDistanceToNow } from "date-fns";
-import { GroupListItem } from "@/components/GroupListItem";
+import { formatChatDate } from "@/utils/dateUtils";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { useAuth } from "@/context/AuthContext";
-import { Group, Message, TypingStatus, User } from "@/types";
-import { cn } from "@/lib/utils";
+import { Group, Message, User } from "@/types";
 import {
   subscribeToGroupMessages,
   sendGroupMessage,
@@ -28,7 +22,6 @@ import {
 } from "@/services/firebase";
 import {
   togglePinGroupMessage,
-  deleteGroupMessage,
   editGroupMessage,
 } from "@/services/groups";
 import {
@@ -37,13 +30,8 @@ import {
   MoreVertical,
   Users,
   Search,
-  Plus,
   Settings,
-  LogOut,
-  Moon,
-  Sun,
   Pin,
-  PinOff,
   X,
   Edit2,
   MessageSquare,
@@ -90,103 +78,12 @@ import { ThreadView } from "@/components/ThreadView";
 import { PinnedMessagesSidebar } from "@/components/PinnedMessagesSidebar";
 import { CalendarView } from "@/components/calendar/CalendarView";
 
-// Mock data for development
-const mockGroups: Group[] = [
-  {
-    id: "1",
-    name: "General",
-    avatar: "",
-    members: ["user1", "user2", "user3"],
-    createdBy: "user1",
-    createdAt: new Date(),
-    lastMessage: {
-      id: "msg1",
-      groupId: "1",
-      senderId: "user2",
-      senderName: "Alice Johnson",
-      text: "Hey everyone! How is the project going?",
-      timestamp: new Date(Date.now() - 1000 * 60 * 30),
-      type: "text",
-    },
-    unreadCount: 2,
-  },
-  {
-    id: "2",
-    name: "Development Team",
-    avatar: "",
-    members: ["user1", "user4", "user5"],
-    createdBy: "user1",
-    createdAt: new Date(),
-    lastMessage: {
-      id: "msg2",
-      groupId: "2",
-      senderId: "user4",
-      senderName: "Bob Smith",
-      text: "The new feature is ready for testing",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60),
-      type: "text",
-    },
-    unreadCount: 0,
-  },
-  {
-    id: "3",
-    name: "Design Team",
-    avatar: "",
-    members: ["user1", "user6", "user7"],
-    createdBy: "user6",
-    createdAt: new Date(),
-    lastMessage: {
-      id: "msg3",
-      groupId: "3",
-      senderId: "user6",
-      senderName: "Carol Davis",
-      text: "New mockups are in Figma",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-      type: "text",
-    },
-    unreadCount: 1,
-  },
-];
-
-const mockMessages: Message[] = [
-  {
-    id: "msg1",
-    groupId: "1",
-    senderId: "user2",
-    senderName: "Alice Johnson",
-    senderAvatar: "",
-    text: "Hey everyone! How is the project going?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-    type: "text",
-  },
-  {
-    id: "msg2",
-    groupId: "1",
-    senderId: "user3",
-    senderName: "Charlie Brown",
-    senderAvatar: "",
-    text: "Going great! We just finished the authentication system.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 25),
-    type: "text",
-  },
-  {
-    id: "msg3",
-    groupId: "1",
-    senderId: "user1", // Current user
-    senderName: "You",
-    senderAvatar: "",
-    text: "Awesome work team! The UI is looking fantastic.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 20),
-    type: "text",
-  },
-];
 
 
 const Chat = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   // Early return if user is not available
   if (!user) {
@@ -213,11 +110,7 @@ const Chat = () => {
     const urlOrgId = searchParams.get('orgId');
     return urlOrgId ? { id: urlOrgId } : null;
   });
-  const [selectedChat, setSelectedChat] = useState<any | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [directMessages, setDirectMessages] = useState<{
-    [chatId: string]: Message[];
-  }>({});
   const [groupMembers, setGroupMembers] = useState<User[]>([]);
   const [groupMemberStatuses, setGroupMemberStatuses] = useState<
     Record<string, any>
@@ -366,7 +259,7 @@ const Chat = () => {
           // Check if it's a direct message (conversation ID usually has an underscore)
           if (selectedGroup.id.includes('_')) {
             const participants = selectedGroup.id.split('_');
-            const otherUserId = participants.find(id => id !== user?.uid);
+            const otherUserId = participants.find((id: string) => id !== user?.uid);
             if (otherUserId) {
               const profiles = await getUsersByIds([otherUserId]);
               if (profiles && profiles.length > 0) {
@@ -451,7 +344,7 @@ const Chat = () => {
             messages.forEach((message) => {
               if (
                 message.senderId !== user.uid &&
-                !message.readBy?.some((r) => r.userId === user.uid)
+                !message.readBy?.some((r: any) => r.userId === user.uid)
               ) {
                 markMessageAsRead(
                   selectedOrg.id,
@@ -686,48 +579,6 @@ const Chat = () => {
       } finally {
         setSendingMessage(false);
       }
-    } else if (selectedChat) {
-      // Keep direct message logic as mock for now
-      const message: Message = {
-        id: `dm_${Date.now()}`,
-        groupId: "",
-        senderId: user.uid,
-        senderName: user.name || user.email || "Unknown User",
-        senderAvatar: user.avatar || "",
-        text: newMessage.trim(),
-        timestamp: new Date(),
-        type: "text",
-      };
-      setDirectMessages((prev) => {
-        const chatId = selectedChat.id;
-        const prevMsgs = prev[chatId] || [];
-        return { ...prev, [chatId]: [...prevMsgs, message] };
-      });
-      setNewMessage("");
-
-      // Add a mock reply from the other user after a short delay
-      setTimeout(() => {
-        setDirectMessages((prev) => {
-          const chatId = selectedChat.id;
-          const prevMsgs = prev[chatId] || [];
-          return {
-            ...prev,
-            [chatId]: [
-              ...prevMsgs,
-              {
-                id: `dm_reply_${Date.now()}`,
-                groupId: "",
-                senderId: selectedChat.id,
-                senderName: selectedChat.name,
-                senderAvatar: selectedChat.avatar,
-                text: "This is a reply!",
-                timestamp: new Date(),
-                type: "text",
-              },
-            ],
-          };
-        });
-      }, 1000);
     }
   };
 
@@ -758,14 +609,12 @@ const Chat = () => {
     if (group?.type === 'direct_message') {
       setSelectedGroup(group);
       setSelectedOrg(null);
-      setSelectedChat(null);
       setView("direct_message");
       updateURL("direct_message", undefined, group.id);
     } else {
       // Handle regular group selection
       setSelectedGroup(group);
       setSelectedOrg(org);
-      setSelectedChat(null);
       setView("chat");
       updateURL("chat", org?.id, group?.id);
     }
@@ -812,6 +661,12 @@ const Chat = () => {
     setNewMessage("");
   };
 
+  const handleCalendarClick = (orgId?: string | null) => {
+    setView("calendar");
+    setSelectedOrg(orgId ? { id: orgId } : null);
+    updateURL("calendar", orgId || undefined);
+  };
+
   // All messages are already filtered by the Firebase subscription
 
   return (
@@ -837,8 +692,6 @@ const Chat = () => {
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
               handleSignOut={handleSignOut}
-              selectedChat={selectedChat}
-              handleSelectChat={handleSelectChat}
               onFeedClick={() => {
                 // Close organization settings if open
                 if (showOrganizationSettings) {
@@ -866,19 +719,10 @@ const Chat = () => {
                 setShowOrganizationSettings(true);
               }}
               onOrganizationUpdate={handleOrganizationUpdate}
-              onCalendarClick={(orgId?: string) => {
-                setView("calendar");
-                if (orgId === null || orgId === undefined) {
-                  setSelectedOrg(null);
-                  updateURL("calendar");
-                } else {
-                  updateURL("calendar", orgId, selectedGroup?.id);
-                }
-                if (isMobile) setSidebarOpen(false);
-              }}
+              onCalendarClick={handleCalendarClick}
               refreshOrganizationsRef={refreshOrganizationsRef}
               onGroupSelect={handleSelectGroup}
-              selectedGroupId={showOrganizationSettings || view === "feed" || view === "your-feed" ? null : selectedGroup?.id}
+              selectedGroupId={showOrganizationSettings || view === "feed" || view === "your-feed" ? undefined : selectedGroup?.id}
               urlOrgId={searchParams.get('orgId')}
             />
           </>
@@ -986,27 +830,6 @@ const Chat = () => {
                     </h2>
                     <p className="text-xs text-muted-foreground truncate">
                       {selectedGroup.members.length} members
-                    </p>
-                  </div>
-                </>
-              )}
-              {selectedChat && (
-                <>
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage
-                      src={selectedChat.avatar}
-                      alt={selectedChat.name}
-                    />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {selectedChat.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <h2 className="font-semibold text-base sm:text-lg text-foreground truncate">
-                      {selectedChat.name}
-                    </h2>
-                    <p className="text-xs text-muted-foreground truncate">
-                      Online
                     </p>
                   </div>
                 </>

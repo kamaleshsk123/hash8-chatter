@@ -1,8 +1,107 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getOrgRole(orgId) {
+      return get(/databases/$(database)/documents/organization_memberships/$(request.auth.uid)_$(orgId)).data.role;
+    }
+    
+    function isOrgAdmin(orgId) {
+      return isSignedIn() && getOrgRole(orgId) == 'admin';
+    }
+    
+    function isOrgModerator(orgId) {
+      return isSignedIn() && (getOrgRole(orgId) == 'admin' || getOrgRole(orgId) == 'moderator');
+    }
+    
+    function isOrgMember(orgId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/organization_memberships/$(request.auth.uid)_$(orgId));
+    }
+    
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == 'admin@hash8.com'
+      );
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow read: if isOrgMember(orgId) || isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isOrgAdmin(orgId) || isSuperAdmin();
+      
+      // Groups sub-collection
+      match /groups/{groupId} {
+        allow read: if isOrgMember(orgId) || isSuperAdmin();
+        allow create, update, delete: if isOrgModerator(orgId) || isSuperAdmin();
+        
+        // Messages sub-collection
+        match /messages/{messageId} {
+          allow read: if isOrgMember(orgId) || isSuperAdmin();
+          allow create: if isOrgMember(orgId);
+          allow update: if isOrgMember(orgId) && (request.auth.uid == resource.data.senderId || isOrgModerator(orgId));
+          allow delete: if isOrgModerator(orgId) || isSuperAdmin();
+        }
+        
+        // Typing sub-collection
+        match /typing/{userId} {
+          allow read: if isOrgMember(orgId);
+          allow write: if isSignedIn() && request.auth.uid == userId;
+        }
+      }
+      
+      // Events sub-collection
+      match /events/{eventId} {
+        allow read: if isOrgMember(orgId) || isSuperAdmin();
+        allow create, update, delete: if isOrgModerator(orgId) || isSuperAdmin();
+      }
+    }
+
+    // Organization Memberships
+    match /organization_memberships/{membershipId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); 
+      allow update, delete: if isOrgAdmin(resource.data.organizationId) || isSuperAdmin();
+    }
+
+    // Direct Messages
+    match /direct_messages/{convId} {
+      allow read, write: if isSignedIn() && (request.auth.uid in convId.split('_') || isSuperAdmin());
+      
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() && (request.auth.uid in convId.split('_') || isSuperAdmin());
+      }
+      
+      match /typing/{userId} {
+        allow read: if isSignedIn() && (request.auth.uid in convId.split('_'));
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+    
+    // Personal Events (for Global Calendar)
+    match /users/{userId}/events/{eventId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+    }
+    
+    // Collection groups (for Admin Dashboard)
+    match /{path=**}/messages/{messageId} {
+      allow read: if isSuperAdmin();
+    }
+    
+    match /{path=**}/recovery_requests/{requestId} {
+      allow read, write: if isSuperAdmin();
     }
   }
 }

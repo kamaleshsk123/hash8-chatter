@@ -1,4 +1,4 @@
-import { collectionGroup, query, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collectionGroup, query, orderBy, limit, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { Message } from '@/types';
 
@@ -16,7 +16,7 @@ export const getAllMessages = async (limitCount: number = 200): Promise<AdminMes
     const snapshot = await getDocs(q);
     
     const messages = await Promise.all(snapshot.docs.map(async (messageDoc) => {
-      const data = messageDoc.data();
+      const data = messageDoc.data() as Record<string, any>;
       const path = messageDoc.ref.path;
       let context = 'Unknown';
 
@@ -67,6 +67,24 @@ export const getAllMessages = async (limitCount: number = 200): Promise<AdminMes
     return messages;
   } catch (error) {
     console.error('Error getting all messages:', error);
+    throw error;
+  }
+};
+
+/**
+ * Securely updates a user's role in Firestore.
+ * Access is further restricted by Firestore rules.
+ */
+export const setUserRole = async (targetUserId: string, newRole: string): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', targetUserId);
+    await updateDoc(userRef, {
+      role: newRole,
+      updatedAt: new Date()
+    });
+    console.log(`Successfully updated user ${targetUserId} role to ${newRole}`);
+  } catch (error) {
+    console.error('Error updating user role:', error);
     throw error;
   }
 };
