@@ -462,7 +462,6 @@ const Chat = () => {
     if (urlOrgId && urlView === 'feed' && !selectedOrg?.name) {
       // Need to load organization data from the sidebar organizations
       // This will be handled by the ChatSidebar's organization list
-      console.log('Loading organization from URL:', urlOrgId);
     }
   }, [searchParams, selectedOrg]);
 

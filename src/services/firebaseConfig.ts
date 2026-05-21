@@ -27,7 +27,7 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 enableIndexedDbPersistence(db)
   .then(() => {
-    console.log('Firestore persistence enabled successfully.');
+    // Firestore persistence enabled
   })
   .catch((err) => {
     if (err.code === 'failed-precondition') {

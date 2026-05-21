@@ -207,8 +207,6 @@ class HybridMessagingService {
 
               // Remove from cache after successful sync
               offlineCache.removePendingMessage(conversationId, message.id);
-              
-              console.log(`Synced ${message.transport} message to Firebase:`, message.id);
             }
           } catch (error) {
             console.error('Failed to sync message:', message.id, error);

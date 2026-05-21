@@ -92,7 +92,6 @@ class BluetoothMessagingService {
 
   private checkBluetoothSupport(): void {
     this.isSupported = 'bluetooth' in navigator && 'requestDevice' in (navigator as any).bluetooth;
-    console.log('Bluetooth Web API supported:', this.isSupported);
   }
 
   // Check if Bluetooth is available for messaging
@@ -106,7 +105,6 @@ class BluetoothMessagingService {
 
     try {
       this.isScanning = true;
-      console.log('Scanning for Chatter devices...');
 
       const device = await (navigator as any).bluetooth.requestDevice({
         filters: [{ services: [this.SERVICE_UUID] }],
@@ -127,8 +125,6 @@ class BluetoothMessagingService {
   // Connect to a discovered device
   private async connectToDevice(device: any): Promise<void> {
     try {
-      console.log('Connecting to device:', device.name);
-      
       const server = await device.gatt.connect();
       const service = await server.getPrimaryService(this.SERVICE_UUID);
       const characteristic = await service.getCharacteristic(this.CHARACTERISTIC_UUID);
@@ -145,7 +141,6 @@ class BluetoothMessagingService {
       };
 
       this.connectedDevices.set(device.id, bluetoothDevice);
-      console.log('Connected to device:', bluetoothDevice.name);
 
     } catch (error) {
       console.error('Device connection error:', error);
@@ -167,8 +162,7 @@ class BluetoothMessagingService {
         timestamp: new Date(messageData.timestamp)
       };
 
-      console.log('Received Bluetooth message:', bluetoothMessage);
-      
+
       // Notify all listeners
       this.messageCallbacks.forEach(callback => {
         try {
@@ -205,7 +199,6 @@ class BluetoothMessagingService {
       if (device.connected && device.characteristic) {
         try {
           await device.characteristic.writeValue(data);
-          console.log('Message sent to device:', device.name);
           sentToAny = true;
         } catch (error) {
           console.error(`Failed to send to device ${device.name}:`, error);
@@ -253,7 +246,6 @@ class BluetoothMessagingService {
     }
     
     this.connectedDevices.clear();
-    console.log('Disconnected from all Bluetooth devices');
   }
 
   // Check connection status

@@ -82,7 +82,6 @@ export const setUserRole = async (targetUserId: string, newRole: string): Promis
       role: newRole,
       updatedAt: new Date()
     });
-    console.log(`Successfully updated user ${targetUserId} role to ${newRole}`);
   } catch (error) {
     console.error('Error updating user role:', error);
     throw error;

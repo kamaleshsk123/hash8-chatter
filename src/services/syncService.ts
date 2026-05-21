@@ -32,7 +32,6 @@ class SyncService {
   // Sync all pending messages
   async syncPendingMessages(): Promise<SyncResult> {
     if (this.isSyncing) {
-      console.log('Sync already in progress');
       return { success: 0, failed: 0, errors: [] };
     }
 
@@ -43,7 +42,6 @@ class SyncService {
       const allPendingMessages = offlineCache.getPendingMessages();
       const conversationIds = Object.keys(allPendingMessages);
 
-      console.log(`Starting sync for ${conversationIds.length} conversations`);
 
       for (const conversationId of conversationIds) {
         const messages = allPendingMessages[conversationId];
@@ -65,8 +63,6 @@ class SyncService {
             // Remove from pending messages on success
             offlineCache.removePendingMessage(conversationId, message.id);
             result.success++;
-            
-            console.log(`Successfully synced message ${message.id} in conversation ${conversationId}`);
           } catch (error) {
             console.error(`Failed to sync message ${message.id}:`, error);
             result.failed++;
@@ -79,8 +75,7 @@ class SyncService {
         }
       }
 
-      console.log(`Sync completed: ${result.success} success, ${result.failed} failed`);
-      
+
       // Notify all callbacks
       this.syncCallbacks.forEach(callback => {
         try {
@@ -118,7 +113,6 @@ class SyncService {
   async autoSync(): Promise<SyncResult> {
     const pendingCount = this.getPendingMessageCount();
     if (pendingCount > 0) {
-      console.log(`Auto-syncing ${pendingCount} pending messages`);
       return await this.syncPendingMessages();
     }
     return { success: 0, failed: 0, errors: [] };

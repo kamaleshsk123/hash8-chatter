@@ -94,11 +94,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
   const tabRef = useRef<HTMLDivElement>(null);
   const [isSticky, setIsSticky] = useState(false);
 
-  useEffect(() => {
-    if (org && org.userRole) {
-      console.log("User role from Organization Feed:", org.userRole);
-    }
-  }, [org]);
+
 
   // Fetch posts from Firebase in real-time
   useEffect(() => {
