@@ -181,7 +181,7 @@ const Login = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="flex justify-center w-full">
-          <Card className="w-full max-w-xs sm:max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6">
+          <Card className="w-full max-w-xs sm:max-w-md shadow-2xl border-0 dark:border dark:border-border/30 bg-white/80 dark:bg-card/85 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6">
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="w-full grid grid-cols-2 mb-2 ">
                 <TabsTrigger value="login">Login</TabsTrigger>

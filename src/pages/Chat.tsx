@@ -77,6 +77,8 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { ThreadView } from "@/components/ThreadView";
 import { PinnedMessagesSidebar } from "@/components/PinnedMessagesSidebar";
 import { CalendarView } from "@/components/calendar/CalendarView";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 
 
 
