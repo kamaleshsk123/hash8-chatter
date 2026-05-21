@@ -1,0 +1,74 @@
+
+# Project Documentation: Hash8 Chatter
+
+## 1. Project Overview
+
+**Name:** Hash8 Chatter (also referred to as Hash8 Intranet)
+
+**Purpose:** A modern, organization-oriented intranet platform designed for real-time communication and social interaction within a company. It provides functionalities for group chat, direct messaging, and a company-wide social feed.
+
+**Core Technologies:**
+*   **Frontend:** React, TypeScript, Vite
+*   **Backend Services:** Firebase (Authentication, Firestore), Cloudinary
+*   **UI Framework:** Tailwind CSS with shadcn-ui components
+*   **State Management:** TanStack Query (React Query) and React Context
+*   **Testing:** Vitest and React Testing Library
+
+---
+
+## 2. Key Features
+
+### a. Communication
+*   **Group Chat:** Real-time messaging within designated groups. Includes features like typing indicators, user avatars, and message reactions.
+*   **Direct Messaging (DM):** Private one-on-one conversations between users.
+*   **Voice Memos:** Users can record and send audio messages.
+*   **Hybrid Messaging:** The codebase includes services for `hybridMessaging`, `bluetoothMessaging`, and `offlineCache`, suggesting an advanced feature set for communication under poor network conditions or for peer-to-peer messaging.
+
+### b. Social Feed
+*   **Organization Feed:** An Instagram-style social feed for company-wide announcements and posts.
+*   **Create Posts:** Users can create posts with text and image uploads.
+*   **Interactions:** Supports message reactions (emojis), comments, and bookmarking/saving posts.
+
+### c. User and Organization Management
+*   **Authentication:** Secure user login and registration using Google (OAuth) or traditional email and password, managed by Firebase Auth.
+*   **User Profiles:** Dedicated user profile pages.
+*   **Organization & Group Management:** Functionality to create and manage organizations and smaller groups within them.
+*   **Moderation:** UI components and services for content and user moderation, including role management (`MemberRoleActions`, `RoleBadge`).
+
+### d. User Interface & Experience
+*   **Responsive Design:** Mobile-first approach ensures the application is usable and looks good on all screen sizes.
+*   **Rich UI Components:** A comprehensive set of modern UI components from the shadcn-ui library (dialogs, forms, cards, toasts, etc.).
+*   **Theming:** Supports both light and dark modes.
+*   **Navigation:** A primary sidebar allows easy navigation between groups, direct messages, and the main social feed.
+
+---
+
+## 3. Technical Architecture
+
+### a. Frontend
+*   **Build Tool:** Vite provides a fast development experience and optimized production builds.
+*   **Language:** TypeScript is used for static typing, improving code quality and maintainability.
+*   **Component-Based:** Built with React, the application is structured into reusable components located in `src/components`.
+*   **Routing:** `react-router-dom` handles all client-side routing.
+*   **Styling:** Tailwind CSS is used for utility-first styling, with `tailwindcss-animate` for animations.
+*   **Forms:** `react-hook-form` combined with `zod` for schema validation provides a robust solution for handling forms.
+
+### b. Backend and Services
+*   **Firebase:** Acts as the primary Backend-as-a-Service (BaaS).
+    *   **Firestore:** Used as the NoSQL database for storing messages, posts, user data, etc.
+    *   **Firebase Authentication:** Manages user identity and security.
+    *   **Firebase Storage:** Likely used for file storage, though Cloudinary is also integrated.
+*   **Cloudinary:** Integrated for robust image and media management, particularly for handling uploads like user avatars and posts in the feed.
+
+### c. Project Structure Highlights
+
+*   `src/pages/`: Contains top-level components for each view/page (e.g., `Chat.tsx`, `Login.tsx`, `UserProfile.tsx`).
+*   `src/components/`: Contains reusable UI components used across the application.
+    *   `src/components/ui/`: Auto-generated shadcn-ui components.
+    *   `src/components/direct-message/`: Components specific to the direct messaging feature.
+    *   `src/components/moderation/`: Components related to moderation tools.
+*   `src/services/`: Contains modules for interacting with external services like Firebase, Cloudinary, and implementations for offline/hybrid messaging.
+*   `src/context/`: Manages global state using React Context (e.g., `AuthContext.tsx`).
+*   `vite.config.ts`: Configuration file for the Vite build tool.
+*   `package.json`: Defines project scripts, dependencies, and metadata.
+

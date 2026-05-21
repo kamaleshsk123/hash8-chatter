@@ -75,7 +75,7 @@ class BluetoothMessagingService {
   private isScanning = false;
   private isSupported = false;
 
-  // Bluetooth service UUID for Hash8 Chatter
+  // Bluetooth service UUID for Chatter
   private readonly SERVICE_UUID = '12345678-1234-1234-1234-123456789abc';
   private readonly CHARACTERISTIC_UUID = '87654321-4321-4321-4321-cba987654321';
 
@@ -100,13 +100,13 @@ class BluetoothMessagingService {
     return this.isSupported && this.connectedDevices.size > 0;
   }
 
-  // Start scanning for nearby Hash8 Chatter devices
+  // Start scanning for nearby Chatter devices
   async startScanning(): Promise<void> {
     if (!this.isSupported || this.isScanning) return;
 
     try {
       this.isScanning = true;
-      console.log('Scanning for Hash8 Chatter devices...');
+      console.log('Scanning for Chatter devices...');
 
       const device = await (navigator as any).bluetooth.requestDevice({
         filters: [{ services: [this.SERVICE_UUID] }],

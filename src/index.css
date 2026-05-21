@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Hash8 Intranet Chat Design System - Modern Telegram-inspired theme
+/* Intranet Chat Design System - Modern Telegram-inspired theme
 All colors MUST be HSL.
 */
 
@@ -19,7 +19,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 213 31% 9%;
 
-    /* Primary - Hash8 brand blue */
+    /* Primary - Brand blue */
     --primary: 199 100% 40%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 199 100% 35%;

@@ -596,7 +596,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
         toast({
           title: "No Devices Found",
-          description: "No compatible Hash8 Chatter devices found nearby. Make sure Bluetooth is enabled and devices are close by.",
+          description: "No compatible Chatter devices found nearby. Make sure Bluetooth is enabled and devices are close by.",
           variant: "destructive",
           duration: 4000,
         });

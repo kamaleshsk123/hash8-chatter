@@ -32,7 +32,7 @@ const Login = () => {
   useEffect(() => {
     if (user) {
       toast({
-        title: "Welcome to Hash8 Intranet!",
+        title: "Welcome to Intranet!",
         description: "You've successfully signed in.",
       });
       navigate("/chat");
@@ -98,7 +98,7 @@ const Login = () => {
       <div className="block lg:hidden w-full fixed top-0 left-0 z-30 bg-gradient-chat/90 backdrop-blur-sm pt-2 pb-2 border-b border-border">
         <div className="flex flex-col items-center justify-center text-center gap-1">
           <span className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-2 text-primary font-bold text-lg">
-            <MessageCircle className="w-6 h-6" /> Hash8 Intranet
+            <MessageCircle className="w-6 h-6" /> Intranet
           </span>
           <h1 className="text-xl font-bold text-foreground leading-tight">
             Connect with your <span className="text-primary">organization</span>
@@ -124,7 +124,7 @@ const Login = () => {
               className="inline-flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 sm:px-6 sm:py-3">
               <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
               <span className="text-lg sm:text-2xl font-bold text-foreground">
-                Hash8 Intranet
+                Intranet
               </span>
             </motion.div>
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">

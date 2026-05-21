@@ -313,7 +313,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg sm:text-xl font-bold text-foreground">
-            Hash8 Intranet
+            Intranet
           </h1>
           <div className="flex items-center gap-2">
             <Button
