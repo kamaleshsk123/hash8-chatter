@@ -240,7 +240,6 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
       const cachedData = offlineCache.getCachedMessages(conversationId);
 
       if (cachedData && cachedData.messages.length > 0) {
-        console.log('Loading cached messages for conversation:', conversationId);
         setMessages(cachedData.messages);
         setIsLoading(false);
         setIsOfflineMode(!isOnline);
@@ -266,7 +265,6 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           unsubscribe = subscribeToDirectMessages(
             conversationId,
             (newMessages) => {
-              console.log('Received live messages for conversation:', conversationId);
               setMessages(newMessages);
               setIsLoading(false);
               setIsOfflineMode(false);
@@ -328,7 +326,6 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           // No cached messages, but that's OK for a new conversation
           setIsLoading(false);
           setIsOfflineMode(true);
-          console.log('Starting fresh offline conversation:', conversationId);
 
           // Don't show an error toast for new conversations - this is normal
           // The user can still compose messages that will be queued
@@ -391,7 +388,6 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
       // We can no longer automatically scan for Bluetooth devices when going offline
       // because browsers require a user gesture (like a button click) to open the
       // Bluetooth device chooser (SecurityError).
-      console.log("[Bluetooth] Offline mode detected. User must manually initiate Bluetooth scan.");
     } else if (isOnline && bluetoothStatus.enabled) {
       // Sync Bluetooth messages when coming back online
       hybridMessaging.syncOfflineMessages()
@@ -485,7 +481,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           try {
             await setTypingIndicator(conversationId, user.uid, user.name || 'Unknown User', false);
           } catch (error) {
-            console.log('Typing indicator error:', error);
+            // Typing indicator cleanup error - ignore
           }
         }
       }
@@ -596,7 +592,7 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
 
         toast({
           title: "No Devices Found",
-          description: "No compatible Hash8 Chatter devices found nearby. Make sure Bluetooth is enabled and devices are close by.",
+          description: "No compatible Chatter devices found nearby. Make sure Bluetooth is enabled and devices are close by.",
           variant: "destructive",
           duration: 4000,
         });
@@ -648,12 +644,10 @@ export const DirectMessage: React.FC<DirectMessageProps> = ({
           await setTypingIndicator(conversationId, user.uid, user.name || 'Unknown User', false);
         } catch (error) {
           // Ignore typing indicator errors when offline
-          console.log('Typing indicator error (offline):', error);
         }
       }, 2000);
     } catch (error) {
       // Ignore typing indicator errors when offline
-      console.log('Typing indicator error (offline):', error);
     }
   };
 

@@ -20,8 +20,6 @@ import {
   getOrganizationMembers, 
   getUsersByIds, 
   subscribeToUserStatus,
-  joinOrganization,
-  createOrGetDirectMessage,
   createOrGetDirectMessageOffline,
   subscribeToConversations
 } from "@/services/firebase";
@@ -38,12 +36,10 @@ interface OrganizationSidebarProps {
   userId: string; // Current user's ID
   isMobile?: boolean; // Whether we're on mobile view
   setSidebarOpen?: (open: boolean) => void; // Function to close sidebar on mobile
-  onCreateGroup?: () => void;
   onFeedClick?: () => void;
   onBack?: () => void; // Callback to go back to main sidebar
   onYourFeedClick?: () => void; // Callback to navigate to Your Feed page
   onSettingsClick?: () => void; // Callback to open organization settings
-  onOrganizationUpdate?: (updatedOrg: any) => void; // Callback for organization updates
   onGroupSelect?: (group: any, org: any) => void; // Callback when a group is selected
   onDirectMessageStart?: (conversationId: string, otherUser: any) => void; // Callback when starting a direct message
   onCalendarClick?: (orgId?: string | null) => void; // Callback to navigate to Calendar page
@@ -58,12 +54,10 @@ export const OrganizationSidebar: React.FC<OrganizationSidebarProps> = ({
   userId,
   isMobile,
   setSidebarOpen,
-  onCreateGroup,
   onFeedClick,
   onBack,
   onYourFeedClick,
   onSettingsClick,
-  onOrganizationUpdate,
   onGroupSelect,
   onDirectMessageStart,
   onCalendarClick,

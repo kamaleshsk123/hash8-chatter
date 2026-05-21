@@ -15,7 +15,7 @@ import {
   increment
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import { uploadFile, deleteFile } from './fileStorage';
+import { uploadFile } from './fileStorage';
 import { generateUUID } from '@/utils/uuid';
 
 // === DIRECT MESSAGING ===
@@ -83,16 +83,16 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
   senderName: string;
   senderAvatar?: string;
   type?: 'text' | 'image' | 'file' | 'poll';
-  replyTo?: any;
+  replyTo?: Record<string, any>;
   id?: string; // Optional pre-generated ID
   parentMessageId?: string; // Added for threads
-  pollData?: any;
+  pollData?: Record<string, any>;
 }) => {
   try {
     const messageId = messageData.id || generateUUID();
     const messageRef = doc(db, `direct_messages/${conversationId}/messages`, messageId);
     
-    const messageDoc: any = {
+    const messageDoc: Record<string, any> = {
       id: messageId,
       conversationId: conversationId,
       text: messageData.text,
@@ -133,7 +133,7 @@ export const sendDirectMessage = async (conversationId: string, messageData: {
     const participants = conversationId.split('_');
     const recipientId = participants.find(id => id !== messageData.senderId);
 
-    const updateData: any = {
+    const updateData: Record<string, any> = {
       lastActivity: serverTimestamp(),
       lastMessage: {
         text: messageData.text,
@@ -195,7 +195,7 @@ export const getDirectMessages = async (conversationId: string, limitCount: numb
 // Subscribe to direct messages in real-time
 export const subscribeToDirectMessages = (
   conversationId: string,
-  onSuccess: (messages: any[]) => void,
+  onSuccess: (messages: Record<string, any>[]) => void,
   onError?: (error: Error) => void
 ) => {
   const messagesRef = collection(db, `direct_messages/${conversationId}/messages`);
@@ -204,7 +204,7 @@ export const subscribeToDirectMessages = (
   return onSnapshot(q, (snapshot) => {
     const messages = snapshot.docs.map(doc => {
       const data = doc.data();
-      const messageData: any = {
+      const messageData: Record<string, any> = {
         id: doc.id,
         text: data.text.trim(),
         senderId: data.senderId,
@@ -275,7 +275,7 @@ export const markDirectMessageAsRead = async (
     const readBy = messageData.readBy || [];
     
     // Check if user has already marked this message as read
-    const existingReadIndex = readBy.findIndex((receipt: any) => receipt.userId === userId);
+    const existingReadIndex = readBy.findIndex((receipt: Record<string, any>) => receipt.userId === userId);
     
     if (existingReadIndex >= 0) {
       // Update existing read receipt timestamp

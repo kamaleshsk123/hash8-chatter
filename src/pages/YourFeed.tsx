@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Plus, Heart, MessageCircle, Share, MoreHorizontal, Bookmark, Eye, Menu } from "lucide-react";
+import { Eye, Menu } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -56,7 +56,7 @@ export const YourFeed: React.FC<YourFeedProps> = ({ onBack }) => {
         // Track posts by org so we can merge them
         const postsByOrg: Record<string, Post[]> = {};
 
-        orgs.forEach((org: any) => {
+        orgs.forEach((org: { id: string; name?: string }) => {
           const postsCol = collection(db, `organizations/${org.id}/posts`);
           const q = query(postsCol, orderBy("timestamp", "desc"));
 

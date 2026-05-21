@@ -1,12 +1,9 @@
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTheme } from "@/context/ThemeContext";
 import { UserProfile } from "./UserProfile";
 import {
   Plus,
-  Search,
   Settings,
   Sun,
   Moon,
@@ -14,40 +11,27 @@ import {
   Users,
   Shield,
   User as UserIcon,
+  Building2,
+  LogIn,
+  Calendar as CalendarIcon,
 } from "lucide-react";
-import { Building2, LogIn, Calendar as CalendarIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-  DialogClose,
-} from "@/components/ui/dialog";
 import QRCode from "react-qr-code";
 import {
-  createOrganization,
-  joinOrganization,
   getUserOrganizations,
   getOrganizationMemberCount,
   getUserRoleInOrganization,
   subscribeToConversations,
   getUsersByIds
 } from "@/services/firebase";
-import { v4 as uuidv4 } from "uuid";
 import { cn } from "@/lib/utils";
-import { Group, Message, TypingStatus } from "@/types";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import QrScanner from 'react-qr-scanner';
 import { useToast } from "@/hooks/use-toast";
 import { CreateOrganizationDialog } from "./CreateOrganizationDialog";
 import { JoinOrganizationDialog } from "./JoinOrganizationDialog";
@@ -60,11 +44,9 @@ interface ChatSidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   handleSignOut: () => void;
-  selectedChat: any;
-  handleSelectChat: (chat: any) => void;
   onFeedClick: () => void;
   onOrgFeedClick?: (org: any) => void;
-  view: "chat" | "feed" | "your-feed" | "direct_message";
+  view: "chat" | "feed" | "your-feed" | "direct_message" | "calendar";
   onOrganizationSettingsClick: (org: any) => void;
   onOrganizationUpdate?: (updatedOrg: any) => void;
   onCalendarClick?: (orgId?: string | null) => void;
@@ -80,8 +62,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   sidebarOpen,
   setSidebarOpen,
   handleSignOut,
-  selectedChat,
-  handleSelectChat,
   onFeedClick,
   onOrgFeedClick,
   view,
@@ -93,20 +73,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   selectedGroupId,
   urlOrgId,
 }) => {
-  const { toast } = useToast();
   const { actualTheme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [orgDialogOpen, setOrgDialogOpen] = React.useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
-  const isMobileView =
-    typeof window !== "undefined" ? window.innerWidth < 640 : false;
 
-  // Camera support check for QR scan
-  const canScan =
-    typeof navigator !== "undefined" &&
-    navigator.mediaDevices &&
-    typeof navigator.mediaDevices.getUserMedia === "function";
 
   // Organization state
   const [orgs, setOrgs] = useState<any[]>([]);
@@ -212,7 +184,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       // Fetch profiles for the other user in each unread conversation
       const otherUserIds = unread.map(conv => {
         const participants = conv.id.split('_');
-        return participants.find(id => id !== user.uid);
+        return participants.find((id: string) => id !== user.uid);
       }).filter(Boolean) as string[];
       
       if (otherUserIds.length > 0) {
@@ -316,10 +288,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   // Confirmation dialog state for switching organization
   const [pendingOrgSwitch, setPendingOrgSwitch] = useState<string | null>(null);
-  const [lastSelectedSidebarItem, setLastSelectedSidebarItem] = useState<{
-    type: "org" | "chat";
-    id: string;
-  } | null>(null);
 
   // Handle URL-based organization selection
   useEffect(() => {
@@ -337,38 +305,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     }
   }, [urlOrgId, orgs, orgDetails, view, selectedSidebarItem, onOrgFeedClick]);
 
-  // Mock data for groups and members (for demo)
-  const mockGroups = [
-    { id: "g1", name: "General", members: 8 },
-    { id: "g2", name: "Design", members: 4 },
-    { id: "g3", name: "Development", members: 6 },
-  ];
-  const mockMembers = [
-    {
-      id: "u1",
-      name: "Alice Johnson",
-      avatar: "",
-      lastMessage: "See you at the meeting!",
-    },
-    {
-      id: "u2",
-      name: "Bob Smith",
-      avatar: "",
-      lastMessage: "Thanks for the update.",
-    },
-    {
-      id: "u3",
-      name: "Carol Davis",
-      avatar: "",
-      lastMessage: "Can you review the document?",
-    },
-    {
-      id: "u4",
-      name: "David Lee",
-      avatar: "",
-      lastMessage: "Let’s sync up tomorrow.",
-    },
-  ];
 
   return (
     <div
@@ -377,7 +313,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg sm:text-xl font-bold text-foreground">
-            Hash8 Intranet
+            Intranet
           </h1>
           <div className="flex items-center gap-2">
             <Button
@@ -585,7 +521,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       )
                         return;
                       setPendingOrgSwitch(org.id);
-                      setLastSelectedSidebarItem(selectedSidebarItem);
                     }}>
                     <Avatar className="w-8 h-8">
                       <AvatarFallback
@@ -636,7 +571,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               </div>
             ) : (
               unreadConversations.map((chat) => {
-                const otherUserId = chat.id.split('_').find(id => id !== user.uid);
+                const otherUserId = chat.id.split('_').find((id: string) => id !== user.uid);
                 const profile = chatProfiles[otherUserId || ''] || {};
                 const name = profile.displayName || otherUserId || 'Unknown User';
                 const avatar = profile.avatar || '';

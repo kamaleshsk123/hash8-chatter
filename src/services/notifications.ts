@@ -15,7 +15,6 @@ export const requestNotificationPermission = async (userId: string) => {
       });
 
       if (token) {
-        console.log("FCM Token:", token);
         // Save token to user profile
         await saveTokenToUser(userId, token);
         return token;
@@ -43,7 +42,6 @@ export const onMessageListener = () =>
   new Promise((resolve) => {
     if (!messaging) return;
     onMessage(messaging, (payload) => {
-      console.log("Message received:", payload);
       resolve(payload);
     });
   });

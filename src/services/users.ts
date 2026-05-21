@@ -1,11 +1,9 @@
 import { 
   doc, 
-  getDoc, 
   setDoc, 
   updateDoc,
   collection,
   query,
-  orderBy,
   onSnapshot,
   where,
   getDocs,
@@ -96,7 +94,7 @@ export const searchUsers = async (searchTerm: string) => {
   const resultsMap = new Map();
   snapshots.forEach(snapshot => {
     snapshot.docs.forEach(doc => {
-      const data = doc.data();
+      const data = doc.data() as Record<string, any>;
       const name = data.name || data.displayName || 'Unknown User';
       
       // Deduplicate by name to prevent showing multiple test accounts with the exact same name

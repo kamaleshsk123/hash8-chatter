@@ -7,8 +7,6 @@ import {
   Menu,
   Eye,
   Send,
-  ArrowUp,
-  ArrowUpIcon,
   List,
   User,
   Plus,
@@ -63,7 +61,7 @@ interface Comment {
 const emojiList = ["👍", "❤️", "😂", "🎉"];
 
 const tabOrder = ["all", "my", "saved"];
-const tabLabels = {
+const tabLabels: Record<string, string> = {
   all: "All",
   my: "My Posts",
   saved: "Saved",
@@ -96,11 +94,7 @@ export const FeedDemo: React.FC<{ onBack: () => void; org: any }> = ({ onBack, o
   const tabRef = useRef<HTMLDivElement>(null);
   const [isSticky, setIsSticky] = useState(false);
 
-  useEffect(() => {
-    if (org && org.userRole) {
-      console.log("User role from Organization Feed:", org.userRole);
-    }
-  }, [org]);
+
 
   // Fetch posts from Firebase in real-time
   useEffect(() => {
